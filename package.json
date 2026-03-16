@@ -1,0 +1,33 @@
+{
+  "name": "one-key-core",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "generate-docs": "typedoc ./src/main.ts ./src/client/client.ts ./src/storage/storage.ts ./src/client/keys.ts ./src/types/keys.ts --skipErrorChecking"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "ioredis": "^5.10.0",
+    "typedoc": "^0.28.17",
+    "typedoc-plugin-markdown": "^4.10.0",
+    "typedoc-plugin-rename-defaults": "^0.7.3",
+    "typedoc-plugin-zod": "^1.4.3",
+    "typescript": "~5.9.3",
+    "vite": "^8.0.0",
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^4.1.0"
+  },
+  "main": "./dist/common.js",
+  "types": "./dist/main.d.ts",
+  "dependencies": {
+    "@types/ioredis": "^5.0.0",
+    "@types/ramda": "^0.31.1",
+    "nanoid": "^5.1.6",
+    "ramda": "^0.32.0",
+    "zod": "^4.3.6"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "plugin": [
+    "typedoc-plugin-markdown",
+    "typedoc-plugin-zod",
+    "typedoc-plugin-rename-defaults"
+  ],
+  "out": "./docs/typedoc",
+  "sort": "source-order",
+  "indexFormat": "table",
+  "parametersFormat": "table",
+  "interfacePropertiesFormat": "table",
+  "classPropertiesFormat": "table",
+  "typeAliasPropertiesFormat": "table",
+  "enumMembersFormat": "table",
+  "propertyMembersFormat": "table",
+  "typeDeclarationFormat": "table"
+}

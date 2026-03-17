@@ -260,7 +260,7 @@ const limits = (redis: Redis | Cluster) => {
       });
 
       workspace_limits_to_check.forEach((rate_limit) => {
-        const redis_key = `workspace_rate_limit:${key!.id}:${rate_limit.name}`;
+        const redis_key = `workspace_rate_limit:${key.owner}:${rate_limit.name}`;
         const scope = "workspace";
         check_limit(pipeline, redis_key, scope, rate_limit);
       });

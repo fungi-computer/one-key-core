@@ -153,7 +153,7 @@ const workspaces = (redis: Redis | Cluster): WorkspacesStorage => {
     if (Object.keys(safe_updates).length > 0) {
       await redis.hset(`workspaces:${owner}`, {
         ...safe_updates,
-        rateLimits: JSON.stringify(safe_updates.rateLimits),
+        rateLimits: JSON.stringify(safe_updates.rateLimits ?? []),
       });
     }
 

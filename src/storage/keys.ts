@@ -130,7 +130,7 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
     if (Object.keys(safe_updates).length > 0) {
       await redis.hset(`key:${hash}`, {
         ...safe_updates,
-        rateLimits: JSON.stringify(safe_updates.rateLimits),
+        rateLimits: JSON.stringify(safe_updates.rateLimits ?? []),
       });
     }
 

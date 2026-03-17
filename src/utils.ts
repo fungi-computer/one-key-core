@@ -8,5 +8,8 @@ export const to_result = <T, E = Error>(maybe: {
   if (error) {
     return { success: false, error };
   }
-  return { success: true, data: data! };
+  if (data === undefined) {
+    return { success: false, error: Error("Either data or error must be provided") };
+  }
+  return { success: true, data };
 };

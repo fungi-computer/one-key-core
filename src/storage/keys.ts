@@ -71,7 +71,7 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
 
       return {
         ...key,
-        rateLimits: JSON.parse(key.rateLimits ?? []),
+        rateLimits: key.rateLimits ? JSON.parse(key.rateLimits) : [],
       };
     });
     return isEmpty(result) ? null : (result as StoredKey);
@@ -124,7 +124,7 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
 
     const exists = await redis.exists(`key:${hash}`);
     if (!exists) {
-      to_result({ error: Error("Key not found") });
+      return to_result({ error: Error("Key not found") });
     }
 
     if (Object.keys(safe_updates).length > 0) {

@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { workspace_schema } from "../types/keys";
 
 import type { Cluster, Redis } from "ioredis";
-import type { StoredKey, Workspace } from "../types/keys";
+import type { Workspace } from "../types/keys";
 import { to_result } from "../utils";
 import type { Result } from "../types/result";
 
@@ -98,17 +98,17 @@ export interface WorkspacesStorage {
 }
 
 const workspaces = (redis: Redis | Cluster): WorkspacesStorage => {
-  const get = async (owner: string): Promise<StoredKey | null> => {
+  const get = async (owner: string): Promise<Workspace | null> => {
     const response = await redis.hgetall(`workspaces:${owner}`).then((key) => {
       if (values(key).length === 0) return {};
       return {
         ...key,
-        rateLimits: JSON.parse(key.rateLimits ?? []),
+        rateLimits: key.rateLimits ? JSON.parse(key.rateLimits) : [],
       };
     });
 
     if (isEmpty(response)) return null;
-    return response as StoredKey;
+    return response as Workspace;
   };
 
   const create = async (workspace: Workspace): Promise<Result<Workspace>> => {
@@ -141,7 +141,7 @@ const workspaces = (redis: Redis | Cluster): WorkspacesStorage => {
 
   const update = async (
     owner: string,
-    updates: Partial<Omit<StoredKey, "hash" | "owner">>,
+    updates: Partial<Omit<Workspace, "owner" | "id">>,
   ): Promise<Result<Workspace>> => {
     const safe_updates = workspace_schema.partial().parse(updates);
 
@@ -168,7 +168,11 @@ const workspaces = (redis: Redis | Cluster): WorkspacesStorage => {
     if (workspace === null)
       return to_result({ error: Error("Workspace does not exist") });
 
-    await redis.del(`workspaces:${owner}`);
+    await redis
+      .multi()
+      .del(`workspaces:${owner}`)
+      .srem("workspaces:all", owner)
+      .exec();
 
     return to_result({ data: "success" });
   };

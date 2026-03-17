@@ -2,7 +2,7 @@
 
 ***
 
-[one-key-core](../../README.md) / types/keys
+[one-key-core](../../modules.md) / types/keys
 
 # types/keys
 

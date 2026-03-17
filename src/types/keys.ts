@@ -1,11 +1,11 @@
 import { z } from "zod";
 
 export const rate_limit_schema = z.object({
-  name: z.string(),
+  name: z.string().min(3),
   limit: z.number(),
-  cost: z.number(),
+  cost: z.number().default(1).optional(),
   autoVerify: z.boolean().default(false).optional(),
-  duration: z.number(),
+  duration: z.number().default(60).optional(),
 });
 
 export const key_schema = z.object({

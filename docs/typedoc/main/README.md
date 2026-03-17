@@ -2,7 +2,7 @@
 
 ***
 
-[one-key-core](../README.md) / main
+[one-key-core](../modules.md) / main
 
 # main
 

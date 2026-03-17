@@ -2,13 +2,13 @@
 
 ***
 
-[one-key-core](../../README.md) / [main](../README.md) / OneKey
+[one-key-core](../../modules.md) / [main](../README.md) / OneKey
 
 # Function: OneKey()
 
 > **OneKey**(`options`): [`Client`](../../client/client/interfaces/Client.md)
 
-Defined in: [main.ts:14](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/main.ts#L14)
+Defined in: [main.ts:14](https://github.com/fungi-computer/Botanical/blob/eb392c5b2c3018f8ad9b53277ef1caedba399ca4/packages/one-key-core/src/main.ts#L14)
 
 Creates a OneKey instance bound to a Redis client.
 

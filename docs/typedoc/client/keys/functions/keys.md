@@ -2,13 +2,13 @@
 
 ***
 
-[one-key-core](../../../README.md) / [client/keys](../README.md) / keys
+[one-key-core](../../../modules.md) / [client/keys](../README.md) / keys
 
 # Function: keys()
 
 > **keys**(`storage`): [`KeysClient`](../interfaces/KeysClient.md)
 
-Defined in: [client/keys.ts:85](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/client/keys.ts#L85)
+Defined in: [client/keys.ts:87](https://github.com/fungi-computer/Botanical/blob/eb392c5b2c3018f8ad9b53277ef1caedba399ca4/packages/one-key-core/src/client/keys.ts#L87)
 
 ## Parameters
 

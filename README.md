@@ -75,7 +75,7 @@ await onekey.keys.verify(api_key, [
 
 | Field | Description |
 |-------|-------------|
-| `name` | Identifier for this limit |
+| `name` | Identifier for this limit (min 3 characters) |
 | `limit` | Max requests allowed |
 | `cost` | How much each request counts (default 1) |
 | `duration` | Window in seconds |

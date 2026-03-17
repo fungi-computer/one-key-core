@@ -2,11 +2,11 @@
 
 ***
 
-[one-key-core](../../README.md) / [main](../README.md) / KeysStorage
+[one-key-core](../../modules.md) / [main](../README.md) / KeysStorage
 
 # Interface: KeysStorage
 
-Defined in: [storage/keys.ts:9](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/storage/keys.ts#L9)
+Defined in: [storage/keys.ts:9](https://github.com/fungi-computer/Botanical/blob/eb392c5b2c3018f8ad9b53277ef1caedba399ca4/packages/one-key-core/src/storage/keys.ts#L9)
 
 ## Methods
 
@@ -14,7 +14,7 @@ Defined in: [storage/keys.ts:9](https://github.com/fungi-computer/Botanical/blob
 
 > **get**(`hash`): `Promise`\<[`StoredKey`](../../types/keys/interfaces/StoredKey.md) \| `null`\>
 
-Defined in: [storage/keys.ts:15](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/storage/keys.ts#L15)
+Defined in: [storage/keys.ts:15](https://github.com/fungi-computer/Botanical/blob/eb392c5b2c3018f8ad9b53277ef1caedba399ca4/packages/one-key-core/src/storage/keys.ts#L15)
 
 Retrieves a key by its hash.
 
@@ -36,21 +36,21 @@ The key object or `null` if not found.
 
 > **create**(`key`): `Promise`\<`Result`\<[`StoredKey`](../../types/keys/interfaces/StoredKey.md)\>\>
 
-Defined in: [storage/keys.ts:22](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/storage/keys.ts#L22)
+Defined in: [storage/keys.ts:22](https://github.com/fungi-computer/Botanical/blob/eb392c5b2c3018f8ad9b53277ef1caedba399ca4/packages/one-key-core/src/storage/keys.ts#L22)
 
 Creates a new key.
 
 #### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `Omit`\<[`StoredKey`](../../types/keys/interfaces/StoredKey.md), `"createdAt"` \| `"id"`\> |
+| Parameter | Type | Description |
+| ------ | ------ | ------ |
+| `key` | `Omit`\<[`StoredKey`](../../types/keys/interfaces/StoredKey.md), `"createdAt"` \| `"id"`\> | Key data (without auto-generated `id` and `createdAt`). |
 
 #### Returns
 
 `Promise`\<`Result`\<[`StoredKey`](../../types/keys/interfaces/StoredKey.md)\>\>
 
-A tuple with an error (if any) and the created key.
+A `Result` containing the created key on success, or an error if the key already exists.
 
 ***
 
@@ -58,7 +58,7 @@ A tuple with an error (if any) and the created key.
 
 > **update**(`hash`, `updates`): `Promise`\<`Result`\<[`StoredKey`](../../types/keys/interfaces/StoredKey.md)\>\>
 
-Defined in: [storage/keys.ts:31](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/storage/keys.ts#L31)
+Defined in: [storage/keys.ts:30](https://github.com/fungi-computer/Botanical/blob/eb392c5b2c3018f8ad9b53277ef1caedba399ca4/packages/one-key-core/src/storage/keys.ts#L30)
 
 Updates an existing key.
 
@@ -73,19 +73,15 @@ Updates an existing key.
 
 `Promise`\<`Result`\<[`StoredKey`](../../types/keys/interfaces/StoredKey.md)\>\>
 
-The updated key.
-
-#### Throws
-
-If the key does not exist.
+A `Result` containing the updated key, or an error if the key does not exist.
 
 ***
 
 ### delete()
 
-> **delete**(`hash`): `Promise`\<`any`\>
+> **delete**(`hash`): `Promise`\<`Result`\<`boolean`\>\>
 
-Defined in: [storage/keys.ts:41](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/storage/keys.ts#L41)
+Defined in: [storage/keys.ts:40](https://github.com/fungi-computer/Botanical/blob/eb392c5b2c3018f8ad9b53277ef1caedba399ca4/packages/one-key-core/src/storage/keys.ts#L40)
 
 Deletes a key by its hash.
 
@@ -97,9 +93,9 @@ Deletes a key by its hash.
 
 #### Returns
 
-`Promise`\<`any`\>
+`Promise`\<`Result`\<`boolean`\>\>
 
-The Redis multi-exec result, or `undefined` if the key didn't exist.
+A `Result` containing true on success, or an error if the key doesn't exist.
 
 ***
 
@@ -107,7 +103,7 @@ The Redis multi-exec result, or `undefined` if the key didn't exist.
 
 > **list**(`cursor?`, `count?`): `Promise`\<\{ `keys`: [`StoredKey`](../../types/keys/interfaces/StoredKey.md)[]; `next_cursor`: `string`; \}\>
 
-Defined in: [storage/keys.ts:49](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/storage/keys.ts#L49)
+Defined in: [storage/keys.ts:48](https://github.com/fungi-computer/Botanical/blob/eb392c5b2c3018f8ad9b53277ef1caedba399ca4/packages/one-key-core/src/storage/keys.ts#L48)
 
 Lists keys with cursor-based pagination.
 
@@ -130,7 +126,7 @@ An object containing the keys and the next cursor.
 
 > **list\_by\_owner**(`owner`, `cursor?`, `count?`): `Promise`\<\{ `keys`: [`StoredKey`](../../types/keys/interfaces/StoredKey.md)[]; `next_cursor`: `string`; \}\>
 
-Defined in: [storage/keys.ts:61](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/storage/keys.ts#L61)
+Defined in: [storage/keys.ts:60](https://github.com/fungi-computer/Botanical/blob/eb392c5b2c3018f8ad9b53277ef1caedba399ca4/packages/one-key-core/src/storage/keys.ts#L60)
 
 Lists keys belonging to a specific owner with cursor-based pagination.
 

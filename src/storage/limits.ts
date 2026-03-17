@@ -1,4 +1,5 @@
 import type { RateLimit, StoredKey } from "../types/keys";
+import { rate_limit_schema } from "../types/keys";
 import Keys from "./keys";
 import Workspaces from "./workspaces";
 import type { Redis, ChainableCommander, Cluster } from "ioredis";
@@ -191,19 +192,20 @@ const limits = (redis: Redis | Cluster) => {
 
     const all_requested_key_limits = request_limits.reduce(
       (acc, limit) => {
-        const stored_key_limit = all_key_limits[limit.name ?? ""];
-        const stored_workspace_limit = all_workspace_limits[limit.name ?? ""];
+        const limit_name = limit.name ?? "";
+        const stored_key_limit = all_key_limits[limit_name];
+        const stored_workspace_limit = all_workspace_limits[limit_name];
 
         return {
           workspaces: stored_workspace_limit
             ? {
                 ...acc.workspaces,
-                [limit.name!]: mergeRight(stored_workspace_limit, limit),
+                [limit_name]: mergeRight(stored_workspace_limit, limit),
               }
             : acc.workspaces,
           keys: {
             ...acc.keys,
-            [limit.name!]: mergeRight(stored_key_limit ?? {}, limit),
+            [limit_name]: mergeRight(stored_key_limit ?? {}, limit),
           },
         };
       },
@@ -243,6 +245,10 @@ const limits = (redis: Redis | Cluster) => {
       hash: string,
       limits: RateLimit[],
     ): Promise<Result<RateLimitWithCheck[]>> => {
+      const validated_limits = limits.map((limit) =>
+        rate_limit_schema.parse(limit),
+      );
+
       const key = await keys.get(hash);
 
       if (key === null) {
@@ -251,10 +257,10 @@ const limits = (redis: Redis | Cluster) => {
 
       const pipeline = redis.pipeline();
       const { key_limits_to_check, workspace_limits_to_check } =
-        await get_limits_to_check(key!, limits);
+        await get_limits_to_check(key, validated_limits);
 
       key_limits_to_check.forEach((rate_limit) => {
-        const redis_key = `key_rate_limit:${key!.id}:${rate_limit.name}`;
+        const redis_key = `key_rate_limit:${key.id}:${rate_limit.name}`;
         const scope = "key";
         check_limit(pipeline, redis_key, scope, rate_limit);
       });

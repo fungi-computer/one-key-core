@@ -2,7 +2,7 @@
 
 ***
 
-[one-key-core](../../README.md) / storage/storage
+[one-key-core](../../modules.md) / storage/storage
 
 # storage/storage
 

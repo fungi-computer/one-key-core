@@ -2,7 +2,7 @@
 
 ***
 
-[one-key-core](../../README.md) / client/keys
+[one-key-core](../../modules.md) / client/keys
 
 # client/keys
 

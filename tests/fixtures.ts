@@ -85,11 +85,13 @@ const passing_key = {
 
 const failing_workspace = {
   owner: owners.owner_failing_limit_checks,
+  name: "Failing Workspace",
   rateLimits: [rate_limits.workspace_requests_fail],
 };
 
 const passing_workspace = {
   owner: owners.owner_passing_limit_checks,
+  name: "Passing Workspace",
   rateLimits: [rate_limits.workspace_requests],
 };
 

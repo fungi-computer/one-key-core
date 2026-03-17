@@ -21,6 +21,7 @@ export const key_schema = z.object({
 
 export const workspace_schema = z.object({
   owner: z.string(),
+  name: z.string(),
   rateLimits: z.array(rate_limit_schema).optional(),
   meta: z.record(z.string(), z.string()).optional(),
 });

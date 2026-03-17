@@ -275,14 +275,14 @@ const limits = (redis: Redis | Cluster) => {
 
       const key_results = results.map(([err, res], idx) => {
         if (err) {
-          const scope = res[3];
+          const [, , reset, scope] = res;
           return {
             exceeded: true,
             name: combined_limits[idx].name,
             limit: combined_limits[idx].limit,
             duration: combined_limits[idx].duration,
-            reset: combined_limits[idx].duration,
             cost: combined_limits[idx].cost,
+            reset: Math.max(0, reset),
             remaining: 0,
             scope: scope,
           } as RateLimitWithCheck;

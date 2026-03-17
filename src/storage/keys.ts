@@ -35,9 +35,9 @@ export interface KeysStorage {
   /**
    * Deletes a key by its hash.
    * @param hash - The hash of the key to delete.
-   * @returns The Redis multi-exec result, or `undefined` if the key didn't exist.
+   * @returns A `Result` containing true on success, or an error if the key doesn't exist.
    */
-  delete(hash: string): Promise<any>;
+  delete(hash: string): Promise<Result<boolean>>;
 
   /**
    * Lists keys with cursor-based pagination.
@@ -138,15 +138,22 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
     return to_result({ data: data! });
   };
 
-  const delete_key = async (hash: string) => {
+  const delete_key: KeysStorage["delete"] = async (hash: string) => {
     const key = await get(hash);
-    if (key === null) return;
-    return redis
-      .multi()
-      .del(`key:${hash}`)
-      .srem(`owner:${key.owner}:keys`, hash)
-      .srem("keys:all", hash)
-      .exec();
+    if (key === null) {
+      return to_result({ error: Error("KEY_NOT_FOUND") });
+    }
+    try {
+      await redis
+        .multi()
+        .del(`key:${hash}`)
+        .srem(`owner:${key.owner}:keys`, hash)
+        .srem("keys:all", hash)
+        .exec();
+      return to_result({ data: true });
+    } catch (error) {
+      return to_result({ error: error as Error });
+    }
   };
 
   const list = async (

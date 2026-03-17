@@ -82,12 +82,28 @@ await onekey.keys.verify(api_key, [
 
 ### Workspace Rate Limits
 
-Set rate limits on the workspace so all keys share the same pool:
+Create a workspace with rate limits so all keys share the same pool:
 
 ```typescript
-await onekey.workspaces.set_rate_limits("my-app", [
-  { name: "default", limit: 1000, cost: 1, duration: 60 },
-]);
+const result = await onekey.workspaces.create({
+  owner: "my-app",
+  name: "My App Workspace",
+  rateLimits: [
+    { name: "default", limit: 1000, cost: 1, duration: 60 },
+  ],
+});
+
+if (result.success) {
+  console.log("Workspace:", result.data.name);
+}
+```
+
+Update workspace rate limits later:
+
+```typescript
+await onekey.workspaces.update("my-app", {
+  rateLimits: [{ name: "default", limit: 2000, cost: 1, duration: 60 }],
+});
 ```
 
 Workspace limits are checked alongside per-key limits.

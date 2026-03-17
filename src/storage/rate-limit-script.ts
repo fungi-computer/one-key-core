@@ -16,10 +16,14 @@ const rate_limit_script = `
   -- 1. Remove expired entries
   redis.call('ZREMRANGEBYSCORE', key, 0, now - duration)
 
-  -- 2. Count current valid entries
+  -- 2. Check if key exists before adding (to only set expiry once)
+  local key_exists = redis.call('EXISTS', key)
+  local key_exists_before = (key_exists == 1)
+
+  -- 3. Count current valid entries
   local current = redis.call('ZCARD', key)
 
-  -- 3. Check if adding cost would exceed limit
+  -- 4. Check if adding cost would exceed limit
   if current + cost > limit then
       -- Get the oldest entry's score to compute reset time
       local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
@@ -31,15 +35,17 @@ const rate_limit_script = `
       return {0, limit - current, reset, scope}  -- exceeded
   end
 
-  -- 4. Add cost entries with unique members
+  -- 5. Add cost entries with unique members
   for i = 1, cost do
       -- Unique member: timestamp + random hex (collision probability negligible)
       local member = now .. ':' .. string.format('%x', math.random(1, 2^31-1))
       redis.call('ZADD', key, now, member)
   end
 
-  -- 5. Set expiration on the key (in milliseconds) to auto-cleanup
-  redis.call('PEXPIRE', key, duration)
+  -- 5. Set expiration only if key was just created
+  if not key_exists_before then
+      redis.call('PEXPIRE', key, duration)
+  end
 
   -- 6. Compute remaining and reset after addition
   local new_current = current + cost

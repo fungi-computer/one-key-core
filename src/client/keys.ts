@@ -60,7 +60,7 @@ export interface KeysClient {
   ) => Promise<Omit<StoredKey, "hash"> | null>;
 
   /**
-   * Updates an existing key (by its hash).
+   * Updates an existing key by its plaintext value.
    * @param key - The key of the key to update.
    * @param updates - Fields to update (cannot change `hash` or `owner`).
    * @returns Result with the updated key or error.
@@ -76,7 +76,7 @@ export interface KeysClient {
   list_by_owner: KeysStorage["list_by_owner"];
 
   /**
-   * Deletes a key by its KEY.
+   * Deletes a key by its by its plaintext value.
    * @param key - The key of the key to delete.
    */
   delete: KeysStorage["delete"];

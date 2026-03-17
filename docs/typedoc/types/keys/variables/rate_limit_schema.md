@@ -8,4 +8,4 @@
 
 > `const` **rate\_limit\_schema**: `ZodObject`\<[`RateLimit`](../type-aliases/RateLimit.md)\>
 
-Defined in: [types/keys.ts:3](https://github.com/fungi-computer/Botanical/blob/29fd21f91ab1227a1a521ff1696b0f87f8fb09a0/packages/one-key-core/src/types/keys.ts#L3)
+Defined in: [types/keys.ts:3](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/types/keys.ts#L3)

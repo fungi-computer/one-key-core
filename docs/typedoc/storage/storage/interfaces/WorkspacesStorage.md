@@ -6,7 +6,7 @@
 
 # Interface: WorkspacesStorage
 
-Defined in: [storage/workspaces.ts:15](https://github.com/fungi-computer/Botanical/blob/29fd21f91ab1227a1a521ff1696b0f87f8fb09a0/packages/one-key-core/src/storage/workspaces.ts#L15)
+Defined in: [storage/workspaces.ts:15](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/storage/workspaces.ts#L15)
 
 Interface for workspace management operations.
 Workspaces represent a collection of API keys owned by a single entity,
@@ -18,7 +18,7 @@ with optional rate limits that apply to all keys within the workspace.
 
 > **create**(`workspace`): `Promise`\<`Result`\<\{ `owner`: `string`; `rateLimits?`: `object`[]; `meta?`: `Record`\<`string`, `string`\>; \}\>\>
 
-Defined in: [storage/workspaces.ts:32](https://github.com/fungi-computer/Botanical/blob/29fd21f91ab1227a1a521ff1696b0f87f8fb09a0/packages/one-key-core/src/storage/workspaces.ts#L32)
+Defined in: [storage/workspaces.ts:32](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/storage/workspaces.ts#L32)
 
 Creates a new workspace.
 
@@ -56,7 +56,7 @@ if (result.success) {
 
 > **get**(`owner`): `Promise`\<\{ `owner`: `string`; `rateLimits?`: `object`[]; `meta?`: `Record`\<`string`, `string`\>; \} \| `null`\>
 
-Defined in: [storage/workspaces.ts:46](https://github.com/fungi-computer/Botanical/blob/29fd21f91ab1227a1a521ff1696b0f87f8fb09a0/packages/one-key-core/src/storage/workspaces.ts#L46)
+Defined in: [storage/workspaces.ts:46](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/storage/workspaces.ts#L46)
 
 Retrieves a workspace by its owner identifier.
 
@@ -87,7 +87,7 @@ if (workspace) {
 
 > **update**(`owner`, `updates`): `Promise`\<`Result`\<\{ `owner`: `string`; `rateLimits?`: `object`[]; `meta?`: `Record`\<`string`, `string`\>; \}\>\>
 
-Defined in: [storage/workspaces.ts:61](https://github.com/fungi-computer/Botanical/blob/29fd21f91ab1227a1a521ff1696b0f87f8fb09a0/packages/one-key-core/src/storage/workspaces.ts#L61)
+Defined in: [storage/workspaces.ts:61](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/storage/workspaces.ts#L61)
 
 Updates an existing workspace.
 
@@ -119,7 +119,7 @@ const result = await workspaces.update("user_123", {
 
 > **delete**(`owner`): `Promise`\<`Result`\<`"success"`\>\>
 
-Defined in: [storage/workspaces.ts:78](https://github.com/fungi-computer/Botanical/blob/29fd21f91ab1227a1a521ff1696b0f87f8fb09a0/packages/one-key-core/src/storage/workspaces.ts#L78)
+Defined in: [storage/workspaces.ts:78](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/storage/workspaces.ts#L78)
 
 Deletes a workspace by its owner identifier.
 
@@ -150,7 +150,7 @@ if (result.success) {
 
 > **list**(`cursor?`, `count?`): `Promise`\<\{ `workspaces`: `object`[]; `next_cursor`: `string`; \}\>
 
-Defined in: [storage/workspaces.ts:94](https://github.com/fungi-computer/Botanical/blob/29fd21f91ab1227a1a521ff1696b0f87f8fb09a0/packages/one-key-core/src/storage/workspaces.ts#L94)
+Defined in: [storage/workspaces.ts:94](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/storage/workspaces.ts#L94)
 
 Lists all workspaces with cursor‑based pagination.
 

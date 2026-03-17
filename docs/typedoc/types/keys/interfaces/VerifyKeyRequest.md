@@ -6,7 +6,7 @@
 
 # Interface: VerifyKeyRequest
 
-Defined in: [types/keys.ts:63](https://github.com/fungi-computer/Botanical/blob/29fd21f91ab1227a1a521ff1696b0f87f8fb09a0/packages/one-key-core/src/types/keys.ts#L63)
+Defined in: [types/keys.ts:63](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/types/keys.ts#L63)
 
 ## Extends
 
@@ -16,5 +16,5 @@ Defined in: [types/keys.ts:63](https://github.com/fungi-computer/Botanical/blob/
 
 | Property | Type | Inherited from | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="property-key"></a> `key` | `string` | `z.infer.key` | [types/keys.ts:43](https://github.com/fungi-computer/Botanical/blob/29fd21f91ab1227a1a521ff1696b0f87f8fb09a0/packages/one-key-core/src/types/keys.ts#L43) |
-| <a id="property-ratelimits"></a> `rateLimits?` | `object`[] | `z.infer.rateLimits` | [types/keys.ts:44](https://github.com/fungi-computer/Botanical/blob/29fd21f91ab1227a1a521ff1696b0f87f8fb09a0/packages/one-key-core/src/types/keys.ts#L44) |
+| <a id="property-key"></a> `key` | `string` | `z.infer.key` | [types/keys.ts:43](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/types/keys.ts#L43) |
+| <a id="property-ratelimits"></a> `rateLimits?` | `object`[] | `z.infer.rateLimits` | [types/keys.ts:44](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/types/keys.ts#L44) |

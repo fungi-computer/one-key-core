@@ -8,7 +8,7 @@
 
 > **OneKey**(`options`): [`Client`](../../client/client/interfaces/Client.md)
 
-Defined in: [main.ts:14](https://github.com/fungi-computer/Botanical/blob/29fd21f91ab1227a1a521ff1696b0f87f8fb09a0/packages/one-key-core/src/main.ts#L14)
+Defined in: [main.ts:14](https://github.com/fungi-computer/Botanical/blob/27f75e482c4ef47a93514c70c5a99ee72ad68164/packages/one-key-core/src/main.ts#L14)
 
 Creates a OneKey instance bound to a Redis client.
 

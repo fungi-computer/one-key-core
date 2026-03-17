@@ -1,4 +1,3 @@
-// import KeyService from "@/src/KeyService";
 import { nanoid } from "nanoid";
 
 const requests_per_second = {
@@ -41,17 +40,6 @@ const workspace_requests_fail = {
   duration: 10,
 };
 
-const owner_passing_limit_checks = "123";
-const owner_failing_limit_checks = "321";
-
-export const BAD_KEY = "123";
-export const GOOD_KEY = "555";
-// const bad_hash = KeyService.hash_key(BAD_KEY);
-// const good_hash = KeyService.hash_key(GOOD_KEY);
-
-const bad_hash = "666";
-const good_hash = "999";
-
 export const rate_limits = {
   workspace_requests,
   workspace_requests_fail,
@@ -60,40 +48,25 @@ export const rate_limits = {
   failing_rate_limit,
 };
 
-export const owners = {
-  owner_passing_limit_checks,
-  owner_failing_limit_checks,
-};
+export const create_owner = () => nanoid(16);
 
-const failing_owner_key = {
+export const create_key = (owner?: string) => ({
   id: nanoid(16),
-  hash: bad_hash!,
-  owner: owners.owner_failing_limit_checks,
-  name: "TEST",
+  hash: nanoid(64),
+  owner: owner ?? create_owner(),
+  name: "Test Key",
   createdAt: Date.now(),
   rateLimits: [rate_limits.requests_per_second, rate_limits.tokens],
-};
+});
 
-const passing_key = {
-  id: nanoid(16),
-  hash: good_hash!,
-  owner: owners.owner_passing_limit_checks,
-  name: "TEST",
-  createdAt: Date.now(),
-  rateLimits: [rate_limits.requests_per_second, rate_limits.tokens],
-};
+export const create_workspace = (owner?: string) => ({
+  owner: owner ?? create_owner(),
+  name: "Test Workspace",
+  rateLimits: [rate_limits.workspace_requests],
+});
 
-const failing_workspace = {
-  owner: owners.owner_failing_limit_checks,
+export const create_failing_workspace = (owner?: string) => ({
+  owner: owner ?? create_owner(),
   name: "Failing Workspace",
   rateLimits: [rate_limits.workspace_requests_fail],
-};
-
-const passing_workspace = {
-  owner: owners.owner_passing_limit_checks,
-  name: "Passing Workspace",
-  rateLimits: [rate_limits.workspace_requests],
-};
-
-export const workspaces = { failing_workspace, passing_workspace };
-export const keys = { failing_owner_key, passing_key };
+});

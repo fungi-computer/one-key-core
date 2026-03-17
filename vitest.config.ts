@@ -1,11 +1,12 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    include: ['tests/**/*.test.ts'],
-    exclude: ['**/node_modules/**'],
+    include: ["tests/**/*.test.ts"],
+    exclude: ["**/node_modules/**"],
+    fileParallelism: false,
     coverage: {
-      provider: 'v8' // or 'istanbul'
+      provider: "v8",
     },
   },
-})
+});

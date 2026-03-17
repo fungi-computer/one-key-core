@@ -44,7 +44,8 @@ export interface KeysClient {
   ): Promise<Result<StoredKey & { key: string }>>;
 
   /**
-   * Verifys an API key is valid (checks and increments usage)
+   * Verifies an API key is valid (checks and increments usage)
+   * @param key - The plaintext API key to verify.
    * @param limits - Rate limits to check.
    * @returns Result indicating whether the key is allowed or an error.
    */
@@ -61,7 +62,7 @@ export interface KeysClient {
 
   /**
    * Updates an existing key by its plaintext value.
-   * @param key - The key of the key to update.
+   * @param key - The plaintext key to update.
    * @param updates - Fields to update (cannot change `hash` or `owner`).
    * @returns Result with the updated key or error.
    */
@@ -76,8 +77,9 @@ export interface KeysClient {
   list_by_owner: KeysStorage["list_by_owner"];
 
   /**
-   * Deletes a key by its by its plaintext value.
-   * @param key - The key of the key to delete.
+   * Deletes a key by its plaintext value.
+   * @param key - The plaintext key to delete.
+   * @returns The Redis multi-exec result, or undefined if the key didn't exist.
    */
   delete: KeysStorage["delete"];
 }

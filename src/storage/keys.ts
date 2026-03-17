@@ -16,8 +16,8 @@ export interface KeysStorage {
 
   /**
    * Creates a new key.
-   * @param data - Key data (without auto-generated `id` and `createdAt`).
-   * @returns A tuple with an error (if any) and the created key.
+   * @param key - Key data (without auto-generated `id` and `createdAt`).
+   * @returns A `Result` containing the created key on success, or an error if the key already exists.
    */
   create(key: Omit<StoredKey, "createdAt" | "id">): Promise<Result<StoredKey>>;
 
@@ -25,8 +25,7 @@ export interface KeysStorage {
    * Updates an existing key.
    * @param hash - The hash of the key to update.
    * @param updates - Partial fields to update (cannot change `hash` or `owner`).
-   * @returns The updated key.
-   * @throws {Error} If the key does not exist.
+   * @returns A `Result` containing the updated key, or an error if the key does not exist.
    */
   update(
     hash: string,

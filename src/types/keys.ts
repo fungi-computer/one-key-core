@@ -65,3 +65,15 @@ export interface VerifyKeyRequest extends z.infer<typeof verify_key_schema> {}
 export interface VerifyKeyResponse extends z.infer<
   typeof verify_response_schema
 > {}
+
+export const rotate_key_request = z.object({
+  grace_period: z.number().optional().describe("Grace period in seconds"),
+});
+
+export const rotate_key_response = z.object({
+  key: z.string().describe("New key value"),
+  expires_at: z.number().describe("Unix timestamp when previous key expires"),
+});
+
+export type RotateKeyRequest = z.infer<typeof rotate_key_request>;
+export type RotateKeyResponse = z.infer<typeof rotate_key_response>;

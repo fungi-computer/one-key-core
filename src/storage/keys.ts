@@ -10,6 +10,7 @@ import {
   ERR_DUPLICATE_KEY,
   ERR_KEY_CREATE_FAILED,
   ERR_KEY_VALIDATION,
+  ERR_KEY_ALREADY_ROTATED,
 } from "../errors";
 
 export interface KeysStorage {
@@ -37,6 +38,21 @@ export interface KeysStorage {
     hash: string,
     updates: Partial<Omit<StoredKey, "hash" | "owner">>,
   ): Promise<Result<StoredKey>>;
+
+  /**
+   * Rotates a key by creating a new key record with a new hash.
+   * @param hash - The current hash of the key to rotate.
+   * @param new_hash - The new hash to set.
+   * @param grace_period - Optional grace period in seconds before the old key stops working.
+   * @returns A `Result` containing the rotation metadata, or an error if the key does not exist.
+   */
+  rotate(
+    hash: string,
+    new_hash: string,
+    grace_period?: number,
+  ): Promise<Result<{
+    expires_at: number;
+  }>>;
 
   /**
    * Deletes a key by its hash.
@@ -235,10 +251,58 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
     return { keys, next_cursor: nextCursor };
   };
 
+  const rotate: KeysStorage["rotate"] = async (
+    hash: string,
+    new_hash: string,
+    grace_period?: number,
+  ) => {
+    const old_key = await get(hash);
+    if (old_key === null) {
+      return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
+    }
+
+    if ((old_key as Record<string, unknown>)["rotated"] === "true") {
+      return to_result({ error: Error(ERR_KEY_ALREADY_ROTATED) });
+    }
+
+    const has_grace_period = grace_period !== undefined && grace_period > 0;
+    const expires_at = has_grace_period
+      ? Date.now() + grace_period * 1000
+      : 0;
+
+    const multi = redis.multi();
+
+    if (has_grace_period) {
+      multi.expire(`key:${hash}`, grace_period);
+      multi.hset(`key:${hash}`, "rotated", "true");
+    } else {
+      multi.del(`key:${hash}`);
+    }
+
+    const { hash: _, owner, ...rest } = old_key;
+    multi.hset(`key:${new_hash}`, {
+      ...rest,
+      hash: new_hash,
+      owner,
+      rateLimits: JSON.stringify(rest.rateLimits ?? []),
+    });
+    multi.sadd(`owner:${owner}:keys`, new_hash);
+    multi.sadd("keys:all", new_hash);
+
+    await multi.exec();
+
+    return to_result({
+      data: {
+        expires_at,
+      },
+    });
+  };
+
   return {
     create,
     get,
     update,
+    rotate,
     delete: delete_key,
     list,
     list_by_owner,

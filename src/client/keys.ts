@@ -9,6 +9,7 @@ import type { Result } from "../types/result";
 import type { Storage } from "../storage/storage";
 import type { RateLimitWithCheck } from "../storage/limits";
 import type { CreateKeyRequest, RateLimit, StoredKey } from "../types/keys";
+import type { RotateKeyResponse } from "../types/keys";
 
 const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz_";
 const nanoid = customAlphabet(alphabet, 32);
@@ -83,6 +84,18 @@ export interface KeysClient {
    * @returns The Redis multi-exec result, or undefined if the key didn't exist.
    */
   delete: KeysStorage["delete"];
+
+  /**
+   * Rotates an API key by generating a new key value while preserving metadata.
+   * @param key - The current plaintext key to rotate.
+   * @param options - Optional rotation parameters.
+   * @param options.grace_period - Seconds the old key remains valid (default: 0 = immediate).
+   * @returns The new key value and rotation metadata, or an error.
+   */
+  rotate_key(
+    key: string,
+    options?: { grace_period?: number },
+  ): Promise<Result<RotateKeyResponse>>;
 }
 
 const keys = (storage: Storage): KeysClient => {
@@ -141,6 +154,25 @@ const keys = (storage: Storage): KeysClient => {
   const delete_key = (key: string) => storage.keys.delete(hash_key(key));
   const list_by_owner: KeysClient["list_by_owner"] = storage.keys.list_by_owner;
 
+  const rotate_key: KeysClient["rotate_key"] = async (key, options) => {
+    const old_hash = hash_key(key);
+    const { key: new_key, hash: new_hash } = generate_key_and_hash();
+
+    const response = await storage.keys.rotate(
+      old_hash,
+      new_hash,
+      options?.grace_period,
+    );
+    if (!response.success) return to_result({ error: response.error });
+
+    return to_result({
+      data: {
+        key: new_key,
+        expires_at: response.data.expires_at,
+      },
+    });
+  };
+
   return {
     create_key,
     verify,
@@ -148,6 +180,7 @@ const keys = (storage: Storage): KeysClient => {
     update,
     list_by_owner,
     delete: delete_key,
+    rotate_key,
   };
 };
 

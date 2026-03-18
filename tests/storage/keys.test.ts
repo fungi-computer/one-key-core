@@ -40,6 +40,17 @@ describe("Keys Storage", () => {
       await storage.keys.delete(key.hash);
     });
 
+    test("Returns error for invalid key data", async () => {
+      const response = await storage.keys.create({
+        hash: "test-hash",
+        owner: 123 as any,
+        name: "Test Key",
+      });
+
+      expect(response.success).toBe(false);
+      expect(response.error.message).toContain("KEY_VALIDATION");
+    });
+
     test("Will NOT write over a key that already exists", async () => {
       const key = fixtures.create_key();
       const response = await storage.keys.create(key);
@@ -67,6 +78,30 @@ describe("Keys Storage", () => {
 
       expect(first.id).not.toBeUndefined();
     });
+
+    test("Returns empty array when no keys exist", async () => {
+      const { keys: list, next_cursor } = await storage.keys.list(0, 10);
+
+      expect(list).toEqual([]);
+      expect(next_cursor).toBe("0");
+    });
+
+    test("Uses cursor for pagination", async () => {
+      for (let i = 0; i < 5; i++) {
+        const key = fixtures.create_key(`owner-${i}`);
+        await storage.keys.create(key);
+      }
+
+      const { keys: first_page, next_cursor } = await storage.keys.list(0, 2);
+
+      expect(first_page.length).toBeGreaterThan(0);
+      const { keys: second_page } = await storage.keys.list(
+        parseInt(next_cursor),
+        2,
+      );
+
+      expect(second_page.length).toBeGreaterThan(0);
+    });
   });
 
   describe("keys.list_by_owner", () => {
@@ -78,6 +113,17 @@ describe("Keys Storage", () => {
       const [first] = list;
 
       expect(first?.id).not.toBeUndefined();
+    });
+
+    test("Returns empty array when owner has no keys", async () => {
+      const { keys: list, next_cursor } = await storage.keys.list_by_owner(
+        "non-existent-owner",
+        0,
+        10,
+      );
+
+      expect(list).toEqual([]);
+      expect(next_cursor).toBe("0");
     });
   });
 
@@ -96,6 +142,29 @@ describe("Keys Storage", () => {
       const fetched_key = await storage.keys.get(key.hash);
 
       expect(fetched_key?.rateLimits).toStrictEqual([]);
+    });
+
+    test("Returns error for invalid update data", async () => {
+      const key = fixtures.create_key();
+      await storage.keys.create(key);
+
+      const response = await storage.keys.update(key.hash, {
+        rateLimits: [{ name: "invalid" }] as any,
+      });
+
+      expect(response.success).toBe(false);
+      expect(response.error.message).toContain("KEY_VALIDATION");
+
+      await storage.keys.delete(key.hash);
+    });
+
+    test("Returns error when updating non-existent key", async () => {
+      const response = await storage.keys.update("non-existent-hash", {
+        name: "New Name",
+      });
+
+      expect(response.success).toBe(false);
+      expect(response.error.message).toContain("KEY_NOT_FOUND");
     });
   });
 

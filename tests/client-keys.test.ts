@@ -33,6 +33,28 @@ describe("Client Keys", () => {
       const key_again = await client.keys.get(response.data.key);
       expect(key_again).toBeNull();
     });
+
+    test("Generates key with custom prefix", async () => {
+      const key_data = fixtures.create_key();
+      const response = await client.keys.create_key(key_data, {
+        prefix: "test",
+      });
+
+      if (!response.success) throw response.error;
+      expect(response.data!.key).toMatch(/^test_/);
+
+      await client.keys.delete(response.data.key);
+    });
+
+    test("Returns error when owner is missing", async () => {
+      const response = await client.keys.create_key({
+        name: "Test Key",
+        rateLimits: [],
+      } as any);
+
+      expect(response.success).toBe(false);
+      expect(response.error.message).toContain("owner");
+    });
   });
 
   describe("delete", () => {
@@ -94,6 +116,13 @@ describe("Client Keys", () => {
       const { data: key } = verify_response;
       expect(key.valid).toBe(true);
       await client.keys.delete(response.data.key);
+    });
+
+    test("Returns error when verifying non-existent key", async () => {
+      const response = await client.keys.verify("non_existent_key", []);
+
+      expect(response.success).toBe(false);
+      expect(response.error.message).toContain("KEY_NOT_FOUND");
     });
   });
 

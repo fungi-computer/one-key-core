@@ -55,5 +55,34 @@ describe("Limits Storage", () => {
         expect(check.exceeded).toBe(false);
       });
     });
+
+    test("Inherits workspace limits when key has no rate limits", async () => {
+      const key = fixtures.create_key();
+      key.rateLimits = [];
+      const workspace = fixtures.create_workspace(key.owner);
+      await storage.keys.create(key);
+      await storage.workspaces.create(workspace);
+
+      const response = await storage.limits.check_limits(key.hash, []);
+
+      if (!response.success) throw response.error;
+      const { data: checks } = response;
+
+      expect(checks?.length).toBe(1);
+      expect(checks?.[0].scope).toBe("workspace");
+    });
+
+    test("Returns error for invalid rate limit in request", async () => {
+      const key = fixtures.create_key();
+      await storage.keys.create(key);
+
+      const response = await storage.limits.check_limits(key.hash, [
+        { name: "ab", limit: 50 } as any,
+      ]);
+
+      expect(response.success).toBe(false);
+      if (response.success) throw Error("Should NOT succeed");
+      expect(response.error.message).toContain("RATE_LIMIT_INVALID");
+    });
   });
 });

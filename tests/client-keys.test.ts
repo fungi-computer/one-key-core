@@ -97,6 +97,22 @@ describe("Client Keys", () => {
   });
 
   describe("update", () => {
+    test("Updates an existing key", async () => {
+      const key_data = fixtures.create_key();
+      const response = await client.keys.create_key(key_data);
+
+      if (!response.success) throw response.error;
+
+      const update_response = await client.keys.update(response.data.key, {
+        name: "Updated Key Name",
+      });
+
+      expect(update_response.success).toBe(true);
+      expect(update_response.data?.name).toBe("Updated Key Name");
+
+      await client.keys.delete(response.data.key);
+    });
+
     test("Returns error when updating non-existent key", async () => {
       const non_existent_key = "non_existent_key_123";
       const response = await client.keys.update(non_existent_key, {

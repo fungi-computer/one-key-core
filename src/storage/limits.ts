@@ -17,6 +17,7 @@ import {
 import { mergeDeepRight } from "ramda";
 import rate_limit_script from "./rate-limit-script";
 import { to_result } from "../utils";
+import { ERR_RATE_LIMIT_INVALID, ERR_KEY_NOT_FOUND } from "../errors";
 import type { Result } from "../types/result";
 
 export type RateLimitWithCheck = RateLimit & {
@@ -56,14 +57,14 @@ const normalize_limit_check = (check: RedisCheck) => {
 };
 
 const check_limit: CheckLimit = (redis, redis_key, scope, rate_limit) => {
-  const cost = rate_limit.cost;
+  const cost = rate_limit.cost ?? 1;
   const now = Date.now();
 
   // @ts-expect-error this is added in the limit constructor
   const response = redis.check_limit(
     redis_key,
     rate_limit.limit.toString(),
-    rate_limit.duration.toString(),
+    (rate_limit.duration ?? 60).toString(),
     cost.toString(),
     now,
     scope,
@@ -245,14 +246,21 @@ const limits = (redis: Redis | Cluster) => {
       hash: string,
       limits: RateLimit[],
     ): Promise<Result<RateLimitWithCheck[]>> => {
-      const validated_limits = limits.map((limit) =>
-        rate_limit_schema.parse(limit),
-      );
+      const validated_limits: RateLimit[] = [];
+      for (const limit of limits) {
+        const result = rate_limit_schema.safeParse(limit);
+        if (!result.success) {
+          return to_result({
+            error: Error(`${ERR_RATE_LIMIT_INVALID}: ${result.error.message}`),
+          });
+        }
+        validated_limits.push(result.data);
+      }
 
       const key = await keys.get(hash);
 
       if (key === null) {
-        return to_result({ error: Error("NO KEY FOUND") });
+        return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
       }
 
       const pipeline = redis.pipeline();

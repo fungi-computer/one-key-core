@@ -5,6 +5,12 @@ import type { StoredKey } from "../types/keys";
 import type { Cluster, Redis } from "ioredis";
 import type { Result } from "../types/result";
 import { to_result } from "../utils";
+import {
+  ERR_KEY_NOT_FOUND,
+  ERR_DUPLICATE_KEY,
+  ERR_KEY_CREATE_FAILED,
+  ERR_KEY_VALIDATION,
+} from "../errors";
 
 export interface KeysStorage {
   /**
@@ -84,14 +90,20 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
   const create = async (
     key: Omit<StoredKey, "createdAt" | "id">,
   ): Promise<Result<StoredKey>> => {
-    const safe_key = key_schema
+    const parsed = key_schema
       .omit({ createdAt: true })
-      .parse({ ...key, id: nanoid(16) });
+      .safeParse({ ...key, id: nanoid(16) });
+    if (!parsed.success) {
+      return to_result({
+        error: Error(`${ERR_KEY_VALIDATION}: ${parsed.error.message}`),
+      });
+    }
+    const safe_key = parsed.data;
 
     const exists = await redis.exists(`key:${safe_key.hash}`);
     if (exists)
       return to_result({
-        error: Error("DUPLICATE_KEY: Key with hash already exists"),
+        error: Error(ERR_DUPLICATE_KEY),
       });
 
     await redis
@@ -108,7 +120,7 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
     const result = await get(safe_key.hash);
     if (!result)
       return to_result({
-        error: Error("Unable to create key"),
+        error: Error(ERR_KEY_CREATE_FAILED),
       });
     return to_result({ data: result! });
   };
@@ -117,14 +129,20 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
     hash: string,
     updates: Partial<Omit<StoredKey, "hash" | "owner">>,
   ) => {
-    const safe_updates = key_schema
+    const parsed = key_schema
       .omit({ hash: true, owner: true })
       .partial()
-      .parse(updates);
+      .safeParse(updates);
+    if (!parsed.success) {
+      return to_result({
+        error: Error(`${ERR_KEY_VALIDATION}: ${parsed.error.message}`),
+      });
+    }
+    const safe_updates = parsed.data;
 
     const exists = await redis.exists(`key:${hash}`);
     if (!exists) {
-      return to_result({ error: Error("Key not found") });
+      return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
     }
 
     if (Object.keys(safe_updates).length > 0) {
@@ -141,7 +159,7 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
   const delete_key: KeysStorage["delete"] = async (hash: string) => {
     const key = await get(hash);
     if (key === null) {
-      return to_result({ error: Error("KEY_NOT_FOUND") });
+      return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
     }
     try {
       await redis

@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach } from "vitest";
 import Redis from "ioredis";
 import Storage from "../src/storage/storage";
 import * as fixtures from "./fixtures";
+import { ERR_KEY_NOT_FOUND, ERR_RATE_LIMIT_INVALID } from "../src/errors";
 
 const HOST = "localhost";
 const PORT = 6379;
@@ -21,10 +22,10 @@ describe("Storage Limits", () => {
       const response = await storage.limits.check_limits(non_existent_hash, []);
 
       expect(response.success).toBe(false);
-      expect(response.error.message).toBe("NO KEY FOUND");
+      expect(response.error.message).toBe(ERR_KEY_NOT_FOUND);
     });
 
-    test("Throws when Zod validation fails", async () => {
+    test("Returns error when Zod validation fails", async () => {
       const key_data = fixtures.create_key();
       const create_response = await storage.keys.create(key_data);
 
@@ -34,9 +35,9 @@ describe("Storage Limits", () => {
         { name: "ab", limit: 10, duration: 60 },
       ];
 
-      await expect(
-        storage.limits.check_limits(key_data.hash, invalid_limits),
-      ).rejects.toThrow("Too small: expected string to have >=3 characters");
+      const response = await storage.limits.check_limits(key_data.hash, invalid_limits);
+      expect(response.success).toBe(false);
+      expect(response.error.message).toContain(ERR_RATE_LIMIT_INVALID);
 
       await storage.keys.delete(key_data.hash);
     });

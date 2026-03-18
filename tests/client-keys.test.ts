@@ -3,6 +3,7 @@ import Redis from "ioredis";
 import Storage from "../src/storage/storage";
 import Client from "../src/client/client";
 import * as fixtures from "./fixtures";
+import { ERR_KEY_NOT_FOUND } from "../src/errors";
 
 const HOST = "localhost";
 const PORT = 6379;
@@ -51,7 +52,7 @@ describe("Client Keys", () => {
       const response = await client.keys.delete(non_existent_key);
 
       expect(response.success).toBe(false);
-      expect(response.error.message).toBe("KEY_NOT_FOUND");
+      expect(response.error.message).toBe(ERR_KEY_NOT_FOUND);
     });
 
     test("Returns error when Redis fails during delete", async () => {
@@ -120,7 +121,7 @@ describe("Client Keys", () => {
       });
 
       expect(response.success).toBe(false);
-      expect(response.error.message).toBe("Key not found");
+      expect(response.error.message).toBe(ERR_KEY_NOT_FOUND);
     });
   });
 });

@@ -3,6 +3,7 @@ import Redis from "ioredis";
 import Storage from "../src/storage/storage";
 import Client from "../src/client/client";
 import * as fixtures from "./fixtures";
+import { ERR_DUPLICATE_WORKSPACE, ERR_WORKSPACE_NOT_FOUND } from "../src/errors";
 
 const HOST = "localhost";
 const PORT = 6379;
@@ -28,9 +29,7 @@ describe("Client Workspaces", () => {
       const duplicate_response = await client.workspaces.create(workspace_data);
 
       expect(duplicate_response.success).toBe(false);
-      expect(duplicate_response.error.message).toBe(
-        "Workspace already exists for this owner",
-      );
+      expect(duplicate_response.error.message).toBe(ERR_DUPLICATE_WORKSPACE);
     });
   });
 
@@ -42,7 +41,7 @@ describe("Client Workspaces", () => {
       });
 
       expect(response.success).toBe(false);
-      expect(response.error.message).toBe("Workspace not found");
+      expect(response.error.message).toBe(ERR_WORKSPACE_NOT_FOUND);
     });
   });
 
@@ -52,7 +51,7 @@ describe("Client Workspaces", () => {
       const response = await client.workspaces.delete(owner);
 
       expect(response.success).toBe(false);
-      expect(response.error.message).toBe("Workspace does not exist");
+      expect(response.error.message).toBe(ERR_WORKSPACE_NOT_FOUND);
     });
   });
 });

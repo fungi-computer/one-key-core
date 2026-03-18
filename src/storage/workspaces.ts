@@ -5,6 +5,12 @@ import { workspace_schema } from "../types/keys";
 import type { Cluster, Redis } from "ioredis";
 import type { Workspace } from "../types/keys";
 import { to_result } from "../utils";
+import {
+  ERR_WORKSPACE_NOT_FOUND,
+  ERR_DUPLICATE_WORKSPACE,
+  ERR_WORKSPACE_CREATE_FAILED,
+  ERR_WORKSPACE_VALIDATION,
+} from "../errors";
 import type { Result } from "../types/result";
 
 /**
@@ -112,15 +118,21 @@ const workspaces = (redis: Redis | Cluster): WorkspacesStorage => {
   };
 
   const create = async (workspace: Workspace): Promise<Result<Workspace>> => {
-    const safe_workspace = workspace_schema.parse({
+    const parsed = workspace_schema.safeParse({
       ...workspace,
       id: nanoid(16),
     });
+    if (!parsed.success) {
+      return to_result({
+        error: Error(`${ERR_WORKSPACE_VALIDATION}: ${parsed.error.message}`),
+      });
+    }
+    const safe_workspace = parsed.data;
 
     const exists = await redis.exists(`workspaces:${safe_workspace.owner}`);
     if (exists) {
       return to_result({
-        error: Error("Workspace already exists for this owner"),
+        error: Error(ERR_DUPLICATE_WORKSPACE),
       });
     }
 
@@ -134,7 +146,7 @@ const workspaces = (redis: Redis | Cluster): WorkspacesStorage => {
       .exec();
 
     const data = await get(safe_workspace.owner);
-    if (!data) return to_result({ error: Error("Could not create workspace") });
+    if (!data) return to_result({ error: Error(ERR_WORKSPACE_CREATE_FAILED) });
 
     return to_result({ data: data });
   };
@@ -143,11 +155,17 @@ const workspaces = (redis: Redis | Cluster): WorkspacesStorage => {
     owner: string,
     updates: Partial<Omit<Workspace, "owner" | "id">>,
   ): Promise<Result<Workspace>> => {
-    const safe_updates = workspace_schema.partial().parse(updates);
+    const parsed = workspace_schema.partial().safeParse(updates);
+    if (!parsed.success) {
+      return to_result({
+        error: Error(`${ERR_WORKSPACE_VALIDATION}: ${parsed.error.message}`),
+      });
+    }
+    const safe_updates = parsed.data;
 
     const exists = await redis.exists(`workspaces:${owner}`);
     if (!exists) {
-      return to_result({ error: Error("Workspace not found") });
+      return to_result({ error: Error(ERR_WORKSPACE_NOT_FOUND) });
     }
 
     if (Object.keys(safe_updates).length > 0) {
@@ -166,7 +184,7 @@ const workspaces = (redis: Redis | Cluster): WorkspacesStorage => {
   ): Promise<Result<"success">> => {
     const workspace = await get(owner);
     if (workspace === null)
-      return to_result({ error: Error("Workspace does not exist") });
+      return to_result({ error: Error(ERR_WORKSPACE_NOT_FOUND) });
 
     await redis
       .multi()

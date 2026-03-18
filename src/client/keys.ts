@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { omit } from "ramda";
 import { to_result } from "../utils";
+import { ERR_KEY_NOT_FOUND } from "../errors";
 import { customAlphabet } from "nanoid";
 
 import type { KeysStorage } from "../main";
@@ -114,7 +115,7 @@ const keys = (storage: Storage): KeysClient => {
     if (!response.success) return response;
 
     const key_record = await storage.keys.get(hash);
-    if (!key_record) return to_result({ error: Error("KEY NOT FOUND") });
+    if (!key_record) return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
 
     const exceeded_record = response.data.find((limit) => limit.exceeded);
     const valid = exceeded_record === undefined;

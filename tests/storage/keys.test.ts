@@ -180,5 +180,41 @@ describe("Keys Storage", () => {
 
       expect(record2).toBeNull();
     });
+
+    test("Removes the id:{id} index entry", async () => {
+      const key = fixtures.create_key();
+      const create_response = await storage.keys.create(key);
+      const { data: created } = create_response;
+      if (!created) throw new Error("Failed to create key");
+
+      const hash_before = await storage.keys.get_by_id(created.id);
+      expect(hash_before.success).toBe(true);
+
+      await storage.keys.delete(key.hash);
+
+      const hash_after = await storage.keys.get_by_id(created.id);
+      expect(hash_after.success).toBe(false);
+    });
+  });
+
+  describe("keys.get_by_id", () => {
+    test("Returns the hash for a valid key_id", async () => {
+      const key = fixtures.create_key();
+      const create_response = await storage.keys.create(key);
+      const { data: created } = create_response;
+      if (!created) throw new Error("Failed to create key");
+
+      const response = await storage.keys.get_by_id(created.id);
+
+      expect(response.success).toBe(true);
+      expect(response.data).toBe(key.hash);
+    });
+
+    test("Returns error for non-existent key_id", async () => {
+      const response = await storage.keys.get_by_id("non-existent-id");
+
+      expect(response.success).toBe(false);
+      expect(response.error.message).toContain("KEY_NOT_FOUND");
+    });
   });
 });

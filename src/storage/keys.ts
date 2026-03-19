@@ -22,6 +22,13 @@ export interface KeysStorage {
   get(hash: string): Promise<StoredKey | null>;
 
   /**
+   * Retrieves a hash by its key ID.
+   * @param id - The unique ID of the key.
+   * @returns A `Result` containing the hash string, or an error if not found.
+   */
+  get_by_id(id: string): Promise<Result<string>>;
+
+  /**
    * Creates a new key.
    * @param key - Key data (without auto-generated `id` and `createdAt`).
    * @returns A `Result` containing the created key on success, or an error if the key already exists.
@@ -98,6 +105,14 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
     });
     return isEmpty(result) ? null : (result as StoredKey);
   };
+
+  const get_by_id = async (id: string): Promise<Result<string>> => {
+    const hash = await redis.get(`id:${id}`);
+    if (hash === null) {
+      return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
+    }
+    return to_result({ data: hash });
+  };
   /**
    * Creates a new key
    * @param data - The key data to create
@@ -129,6 +144,7 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
         createdAt: Date.now(),
         rateLimits: JSON.stringify(safe_key.rateLimits ?? []),
       })
+      .set(`id:${safe_key.id}`, safe_key.hash)
       .sadd(`owner:${safe_key.owner}:keys`, safe_key.hash)
       .sadd("keys:all", safe_key.hash)
       .exec();
@@ -181,6 +197,7 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
       await redis
         .multi()
         .del(`key:${hash}`)
+        .del(`id:${key.id}`)
         .srem(`owner:${key.owner}:keys`, hash)
         .srem("keys:all", hash)
         .exec();
@@ -301,6 +318,7 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
   return {
     create,
     get,
+    get_by_id,
     update,
     rotate,
     delete: delete_key,

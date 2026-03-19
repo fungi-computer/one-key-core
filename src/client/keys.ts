@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { omit } from "ramda";
 import { to_result } from "../utils";
-import { ERR_KEY_NOT_FOUND } from "../errors";
+import { ERR_KEY_NOT_FOUND, ERR_KEY_ALREADY_ROTATED } from "../errors";
 import { customAlphabet } from "nanoid";
 
 import type { KeysStorage } from "../main";
@@ -85,13 +85,13 @@ export interface KeysClient {
 
   /**
    * Rotates an API key by generating a new key value while preserving metadata.
-   * @param key - The current plaintext key to rotate.
+   * @param key_id - The key ID to rotate.
    * @param options - Optional rotation parameters.
    * @param options.grace_period - Seconds the old key remains valid (default: 0 = immediate).
    * @returns The new key value and rotation metadata, or an error.
    */
   rotate_key(
-    key: string,
+    key_id: string,
     options?: { grace_period?: number },
   ): Promise<Result<RotateKeyResponse>>;
 
@@ -169,12 +169,22 @@ const keys = (storage: Storage): KeysClient => {
   };
   const list_by_owner: KeysClient["list_by_owner"] = storage.keys.list_by_owner;
 
-  const rotate_key: KeysClient["rotate_key"] = async (key, options) => {
-    const old_hash = hash_key(key);
+  const rotate_key: KeysClient["rotate_key"] = async (key_id, options) => {
+    const hash_response = await storage.keys.get_by_id(key_id);
+    if (!hash_response.success) return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
+    const current_hash = hash_response.data;
+
+    const stored_key = await storage.keys.get(current_hash);
+    if (!stored_key) return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
+
+    if ((stored_key as Record<string, unknown>)["rotated"] === "true") {
+      return to_result({ error: Error(ERR_KEY_ALREADY_ROTATED) });
+    }
+
     const { key: new_key, hash: new_hash } = generate_key_and_hash();
 
     const response = await storage.keys.rotate(
-      old_hash,
+      current_hash,
       new_hash,
       options?.grace_period,
     );

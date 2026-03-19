@@ -217,4 +217,24 @@ describe("Keys Storage", () => {
       expect(response.error.message).toContain("KEY_NOT_FOUND");
     });
   });
+
+  describe("keys.rotate", () => {
+    test("Updates the id:{id} index to point to new hash", async () => {
+      const key = fixtures.create_key();
+      const create_response = await storage.keys.create(key);
+      const { data: created } = create_response;
+      if (!created) throw new Error("Failed to create key");
+
+      const rotate_response = await storage.keys.rotate(
+        key.hash,
+        "new-hash-123",
+        0,
+      );
+      expect(rotate_response.success).toBe(true);
+
+      const lookup = await storage.keys.get_by_id(created.id);
+      expect(lookup.success).toBe(true);
+      expect(lookup.data).toBe("new-hash-123");
+    });
+  });
 });

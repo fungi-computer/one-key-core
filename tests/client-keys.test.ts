@@ -153,4 +153,30 @@ describe("Client Keys", () => {
       expect(response.error.message).toBe(ERR_KEY_NOT_FOUND);
     });
   });
+
+  describe("lookup", () => {
+    test("Returns full key data for a valid plaintext key", async () => {
+      const key_data = fixtures.create_key();
+      const create_response = await client.keys.create_key(key_data);
+
+      if (!create_response.success) throw create_response.error;
+
+      const lookup_response = await client.keys.lookup(create_response.data.key);
+
+      expect(lookup_response.success).toBe(true);
+      expect(lookup_response.data?.id).toBe(create_response.data.id);
+      expect(lookup_response.data?.owner).toBe(key_data.owner);
+      expect(lookup_response.data?.name).toBe(key_data.name);
+      expect(lookup_response.data?.hash).toBeUndefined();
+
+      await client.keys.delete(create_response.data.key);
+    });
+
+    test("Returns error for non-existent key", async () => {
+      const lookup_response = await client.keys.lookup("non_existent_key");
+
+      expect(lookup_response.success).toBe(false);
+      expect(lookup_response.error.message).toBe(ERR_KEY_NOT_FOUND);
+    });
+  });
 });

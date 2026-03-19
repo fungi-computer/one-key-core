@@ -296,13 +296,15 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
       multi.del(`key:${hash}`);
     }
 
-    const { hash: _, owner, ...rest } = old_key;
+    const { hash: _, owner, id, ...rest } = old_key;
     multi.hset(`key:${new_hash}`, {
       ...rest,
+      id,
       hash: new_hash,
       owner,
       rateLimits: JSON.stringify(rest.rateLimits ?? []),
     });
+    multi.set(`id:${id}`, new_hash);
     multi.sadd(`owner:${owner}:keys`, new_hash);
     multi.sadd("keys:all", new_hash);
 

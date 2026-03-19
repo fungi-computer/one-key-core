@@ -96,6 +96,13 @@ export interface KeysClient {
     key: string,
     options?: { grace_period?: number },
   ): Promise<Result<RotateKeyResponse>>;
+
+  /**
+   * Looks up a key's full record from a plaintext key.
+   * @param key - The plaintext API key.
+   * @returns Result containing the full key record (without hash) or an error if the key doesn't exist.
+   */
+  lookup(key: string): Promise<Result<Omit<StoredKey, "hash">>>;
 }
 
 const keys = (storage: Storage): KeysClient => {
@@ -173,6 +180,13 @@ const keys = (storage: Storage): KeysClient => {
     });
   };
 
+  const lookup: KeysClient["lookup"] = async (key: string) => {
+    const hash = hash_key(key);
+    const stored_key = await storage.keys.get(hash);
+    if (!stored_key) return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
+    return to_result({ data: omit(["hash"], stored_key) });
+  };
+
   return {
     create_key,
     verify,
@@ -181,6 +195,7 @@ const keys = (storage: Storage): KeysClient => {
     list_by_owner,
     delete: delete_key,
     rotate_key,
+    lookup,
   };
 };
 

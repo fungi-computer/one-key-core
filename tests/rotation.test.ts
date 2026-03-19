@@ -164,12 +164,12 @@ describe("Key Rotation", () => {
         const rotate_response = await client.keys.rotate_key(original_key);
         if (!rotate_response.success) throw rotate_response.error;
 
-        const get_response = await client.keys.get(rotate_response.data.key);
+        const get_response = await client.keys.get(original_id);
         expect(get_response?.id).toBe(original_id);
         expect(get_response?.name).toBe(key_data.name);
         expect(get_response?.owner).toBe(key_data.owner);
 
-        await client.keys.delete(rotate_response.data.key);
+        await client.keys.delete(original_id);
       });
     });
 
@@ -345,14 +345,15 @@ describe("Key Rotation", () => {
         });
         if (!create_response.success) throw create_response.error;
         const original_key = create_response.data.key;
+        const original_id = create_response.data.id;
 
         const rotate_response = await client.keys.rotate_key(original_key);
         if (!rotate_response.success) throw rotate_response.error;
 
-        const get_response = await client.keys.get(rotate_response.data.key);
+        const get_response = await client.keys.get(original_id);
         expect(get_response?.rateLimits).toEqual(rate_limits);
 
-        await client.keys.delete(rotate_response.data.key);
+        await client.keys.delete(original_id);
       });
     });
   });

@@ -18,6 +18,31 @@ describe("Client Keys", () => {
     await redis.flushdb();
   });
 
+  describe("get", () => {
+    test("Gets a key by key_id", async () => {
+      const key_data = fixtures.create_key();
+      const create_response = await client.keys.create_key(key_data);
+
+      if (!create_response.success) throw create_response.error;
+
+      const get_response = await client.keys.get(create_response.data.id);
+
+      expect(get_response?.id).toBe(create_response.data.id);
+      expect(get_response?.owner).toBe(key_data.owner);
+      expect(get_response?.hash).toBeUndefined();
+
+      await client.keys.delete(create_response.data.id);
+      const key_again = await client.keys.get(create_response.data.id);
+      expect(key_again).toBeNull();
+    });
+
+    test("Returns null for non-existent key_id", async () => {
+      const get_response = await client.keys.get("non-existent-id");
+
+      expect(get_response).toBeNull();
+    });
+  });
+
   describe("create_key", () => {
     test("Generates, hashes, and stores a new key", async () => {
       const key_data = fixtures.create_key();
@@ -26,11 +51,11 @@ describe("Client Keys", () => {
       if (!response.success) throw response.error;
       expect(response.data!.key).not.toBeUndefined();
 
-      const key = await client.keys.get(response.data.key);
+      const key = await client.keys.get(response.data.id);
 
       expect(key?.hash).toBeUndefined();
-      await client.keys.delete(response.data.key);
-      const key_again = await client.keys.get(response.data.key);
+      await client.keys.delete(response.data.id);
+      const key_again = await client.keys.get(response.data.id);
       expect(key_again).toBeNull();
     });
 
@@ -43,7 +68,7 @@ describe("Client Keys", () => {
       if (!response.success) throw response.error;
       expect(response.data!.key).toMatch(/^test_/);
 
-      await client.keys.delete(response.data.key);
+      await client.keys.delete(response.data.id);
     });
 
     test("Returns error when owner is missing", async () => {
@@ -58,20 +83,20 @@ describe("Client Keys", () => {
   });
 
   describe("delete", () => {
-    test("Deletes a key given the KEY NOT HASH", async () => {
+    test("Deletes a key by key_id", async () => {
       const key_data = fixtures.create_key();
       const response = await client.keys.create_key(key_data);
 
       if (!response.success) throw response.error;
 
-      await client.keys.delete(response.data.key);
-      const key_again = await client.keys.get(response.data.key);
+      await client.keys.delete(response.data.id);
+      const key_again = await client.keys.get(response.data.id);
       expect(key_again).toBeNull();
     });
 
     test("Returns error when deleting non-existent key", async () => {
-      const non_existent_key = "non_existent_key_123";
-      const response = await client.keys.delete(non_existent_key);
+      const non_existent_id = "non_existent_id_123";
+      const response = await client.keys.delete(non_existent_id);
 
       expect(response.success).toBe(false);
       expect(response.error.message).toBe(ERR_KEY_NOT_FOUND);
@@ -93,13 +118,13 @@ describe("Client Keys", () => {
       const client_with_failing_redis = Client({ storage: storage_with_failing_redis });
 
       const delete_response = await client_with_failing_redis.keys.delete(
-        response.data.key,
+        response.data.id,
       );
 
       expect(delete_response.success).toBe(false);
       expect(delete_response.error.message).toBe("Redis connection failed");
 
-      await client.keys.delete(response.data.key);
+      await client.keys.delete(response.data.id);
     });
   });
 
@@ -115,7 +140,7 @@ describe("Client Keys", () => {
       if (!verify_response.success) throw Error("Shouldn't break here");
       const { data: key } = verify_response;
       expect(key.valid).toBe(true);
-      await client.keys.delete(response.data.key);
+      await client.keys.delete(response.data.id);
     });
 
     test("Returns error when verifying non-existent key", async () => {
@@ -140,7 +165,7 @@ describe("Client Keys", () => {
       expect(update_response.success).toBe(true);
       expect(update_response.data?.name).toBe("Updated Key Name");
 
-      await client.keys.delete(response.data.key);
+      await client.keys.delete(response.data.id);
     });
 
     test("Returns error when updating non-existent key", async () => {
@@ -169,7 +194,7 @@ describe("Client Keys", () => {
       expect(lookup_response.data?.name).toBe(key_data.name);
       expect(lookup_response.data?.hash).toBeUndefined();
 
-      await client.keys.delete(create_response.data.key);
+      await client.keys.delete(create_response.data.id);
     });
 
     test("Returns error for non-existent key", async () => {

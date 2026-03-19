@@ -54,13 +54,11 @@ export interface KeysClient {
   verify(key: string, limits: RateLimit[]): Promise<Result<KeyVerification>>;
 
   /**
-   * Retrieves a key by its plaintext value (hashes it internally).
-   * @param key - The plaintext API key.
+   * Retrieves a key by its ID (hashes it internally).
+   * @param key_id - The key ID.
    * @returns The key data without the hash field, or null if not found.
    */
-  get: (
-    ...args: Parameters<KeysStorage["get"]>
-  ) => Promise<Omit<StoredKey, "hash"> | null>;
+  get(key_id: string): Promise<Omit<StoredKey, "hash"> | null>;
 
   /**
    * Updates an existing key by its plaintext value.
@@ -79,11 +77,11 @@ export interface KeysClient {
   list_by_owner: KeysStorage["list_by_owner"];
 
   /**
-   * Deletes a key by its plaintext value.
-   * @param key - The plaintext key to delete.
-   * @returns The Redis multi-exec result, or undefined if the key didn't exist.
+   * Deletes a key by its ID.
+   * @param key_id - The key ID to delete.
+   * @returns Result with true on success, or an error if the key doesn't exist.
    */
-  delete: KeysStorage["delete"];
+  delete(key_id: string): Promise<Result<boolean>>;
 
   /**
    * Rotates an API key by generating a new key value while preserving metadata.
@@ -148,17 +146,21 @@ const keys = (storage: Storage): KeysClient => {
     });
   };
 
-  const get = async (key: string): Promise<Omit<StoredKey, "hash"> | null> => {
-    const hash = hash_key(key);
-    const stored_key = await storage.keys.get(hash);
-
+  const get = async (key_id: string): Promise<Omit<StoredKey, "hash"> | null> => {
+    const hash_response = await storage.keys.get_by_id(key_id);
+    if (!hash_response.success) return null;
+    const stored_key = await storage.keys.get(hash_response.data);
     if (!stored_key) return null;
     return omit(["hash"], stored_key);
   };
 
   const update: KeysClient["update"] = (key: string, updates) =>
     storage.keys.update(hash_key(key), updates);
-  const delete_key = (key: string) => storage.keys.delete(hash_key(key));
+  const delete_key = async (key_id: string): Promise<Result<boolean>> => {
+    const hash_response = await storage.keys.get_by_id(key_id);
+    if (!hash_response.success) return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
+    return storage.keys.delete(hash_response.data);
+  };
   const list_by_owner: KeysClient["list_by_owner"] = storage.keys.list_by_owner;
 
   const rotate_key: KeysClient["rotate_key"] = async (key, options) => {

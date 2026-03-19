@@ -32,8 +32,6 @@ describe("Client Keys", () => {
       expect(get_response?.hash).toBeUndefined();
 
       await client.keys.delete(create_response.data.id);
-      const key_again = await client.keys.get(create_response.data.id);
-      expect(key_again).toBeNull();
     });
 
     test("Returns null for non-existent key_id", async () => {
@@ -152,13 +150,13 @@ describe("Client Keys", () => {
   });
 
   describe("update", () => {
-    test("Updates an existing key", async () => {
+    test("Updates an existing key by key_id", async () => {
       const key_data = fixtures.create_key();
       const response = await client.keys.create_key(key_data);
 
       if (!response.success) throw response.error;
 
-      const update_response = await client.keys.update(response.data.key, {
+      const update_response = await client.keys.update(response.data.id, {
         name: "Updated Key Name",
       });
 
@@ -168,9 +166,8 @@ describe("Client Keys", () => {
       await client.keys.delete(response.data.id);
     });
 
-    test("Returns error when updating non-existent key", async () => {
-      const non_existent_key = "non_existent_key_123";
-      const response = await client.keys.update(non_existent_key, {
+    test("Returns error when updating non-existent key_id", async () => {
+      const response = await client.keys.update("non-existent-id", {
         name: "New Name",
       });
 

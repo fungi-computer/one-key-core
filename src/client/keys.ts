@@ -61,12 +61,12 @@ export interface KeysClient {
   get(key_id: string): Promise<Omit<StoredKey, "hash"> | null>;
 
   /**
-   * Updates an existing key by its plaintext value.
-   * @param key - The plaintext key to update.
+   * Updates an existing key by its ID.
+   * @param key_id - The key ID to update.
    * @param updates - Fields to update (cannot change `hash` or `owner`).
    * @returns Result with the updated key or error.
    */
-  update: KeysStorage["update"];
+  update(key_id: string, updates: Partial<Omit<StoredKey, "hash" | "owner">>): Promise<Result<StoredKey>>;
 
   /**
    * Lists keys belonging to a specific owner with cursor‑based pagination.
@@ -154,8 +154,14 @@ const keys = (storage: Storage): KeysClient => {
     return omit(["hash"], stored_key);
   };
 
-  const update: KeysClient["update"] = (key: string, updates) =>
-    storage.keys.update(hash_key(key), updates);
+  const update = async (
+    key_id: string,
+    updates: Partial<Omit<StoredKey, "hash" | "owner">>,
+  ): Promise<Result<StoredKey>> => {
+    const hash_response = await storage.keys.get_by_id(key_id);
+    if (!hash_response.success) return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
+    return storage.keys.update(hash_response.data, updates);
+  };
   const delete_key = async (key_id: string): Promise<Result<boolean>> => {
     const hash_response = await storage.keys.get_by_id(key_id);
     if (!hash_response.success) return to_result({ error: Error(ERR_KEY_NOT_FOUND) });

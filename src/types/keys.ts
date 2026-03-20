@@ -1,12 +1,5 @@
 import { z } from "zod";
-
-export const rate_limit_schema = z.object({
-  name: z.string().min(3),
-  limit: z.number(),
-  cost: z.number().default(1).optional(),
-  autoVerify: z.boolean().default(false).optional(),
-  duration: z.number().default(60).optional(),
-});
+import { rate_limit_schema } from "../schemas";
 
 export const key_schema = z.object({
   id: z.string().regex(/^[a-z0-9_-]{16}$/i),
@@ -51,7 +44,6 @@ export const verify_response_schema = z.object({
   error: z.string().optional(),
 });
 
-export type RateLimit = z.infer<typeof rate_limit_schema>;
 export type Workspace = z.infer<typeof workspace_schema>;
 /**
  * Represents a stored API key with its metadata and rate limits.

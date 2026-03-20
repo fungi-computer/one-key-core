@@ -24,6 +24,13 @@
   },
   "main": "./dist/common.js",
   "types": "./dist/main.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/main.d.ts",
+      "default": "./dist/common.js"
+    },
+    "./schemas": "./dist/schemas.js"
+  },
   "dependencies": {
     "@types/ioredis": "^5.0.0",
     "@types/ramda": "^0.31.1",

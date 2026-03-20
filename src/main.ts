@@ -3,6 +3,21 @@ import Storage from "./storage/storage";
 import Client from "./client/client";
 export type { KeysStorage } from "./storage/keys";
 export type { Client } from "./client/client";
+export {
+  rate_limit_schema,
+  rate_limit_schema_partial,
+} from "./schemas";
+export type { RateLimit } from "./schemas";
+export type {
+  StoredKey,
+  Workspace,
+  CreateKeyRequest,
+  CreateKeyResponse,
+  VerifyKeyRequest,
+  VerifyKeyResponse,
+  RotateKeyRequest,
+  RotateKeyResponse,
+} from "./types/keys";
 
 /**
  * Creates a OneKey instance bound to a Redis client.

@@ -2,6 +2,7 @@ import type { Cluster, Redis } from "ioredis";
 import Storage from "./storage/storage";
 import Client from "./client/client";
 export type { KeysStorage } from "./storage/keys";
+export type { Client } from "./client/client";
 
 /**
  * Creates a OneKey instance bound to a Redis client.

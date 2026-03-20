@@ -12,16 +12,10 @@ export interface Storage {
 }
 
 const Storage = ({ redis }: { redis: Redis | Cluster }) => {
-  const keys_storage = keys(redis);
-  const workspaces_storage = workspaces(redis);
-
   const storage = {
-    keys: keys_storage,
-    workspaces: workspaces_storage,
-    limits: limits(redis, {
-      get_key: (key_id: string) => keys_storage.get(key_id),
-      get_workspace: (workspace_id: string) => workspaces_storage.get(workspace_id),
-    }),
+    keys: keys(redis),
+    workspaces: workspaces(redis),
+    limits: limits(redis),
   };
   return storage;
 };

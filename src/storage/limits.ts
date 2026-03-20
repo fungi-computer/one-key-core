@@ -1,8 +1,6 @@
 import type { StoredKey, Workspace } from "../types/keys";
 import type { RateLimit } from "../schemas";
 import { rate_limit_schema } from "../schemas";
-import Keys from "./keys";
-import Workspaces from "./workspaces";
 import type { Redis, ChainableCommander, Cluster } from "ioredis";
 
 import {

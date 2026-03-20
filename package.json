@@ -22,12 +22,12 @@
     "vite-plugin-dts": "^4.5.4",
     "vitest": "^4.1.0"
   },
-  "main": "./dist/common.js",
+  "main": "./dist/main.js",
   "types": "./dist/main.d.ts",
   "exports": {
     ".": {
       "types": "./dist/main.d.ts",
-      "default": "./dist/common.js"
+      "default": "./dist/main.js"
     },
     "./schemas": "./dist/schemas.js"
   },

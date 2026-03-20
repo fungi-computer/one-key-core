@@ -4,25 +4,42 @@ import { to_result } from "../utils";
 import { ERR_KEY_NOT_FOUND, ERR_KEY_ALREADY_ROTATED } from "../errors";
 import { customAlphabet } from "nanoid";
 
-import type { KeysStorage } from "../main";
-import type { Result } from "../types/result";
-import type { Storage } from "../storage/storage";
+import type { KeyVault } from "./keyvault";
 import type { RateLimitWithCheck } from "../storage/limits";
-import type { CreateKeyRequest, RateLimit, StoredKey } from "../types/keys";
+import type { Result } from "../types/result";
+import type { CreateKeyRequest, StoredKey } from "../types/keys";
 import type { RotateKeyResponse } from "../types/keys";
+import type { RateLimit } from "../schemas";
 
 const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz_";
 const nanoid = customAlphabet(alphabet, 32);
 
-const generate_key = (bytes = 32, prefix = ""): string => {
+/**
+ * Generates a random key string.
+ * @param bytes - Number of random bytes (default 32).
+ * @param prefix - Optional prefix to prepend.
+ * @returns The generated key string.
+ */
+export const generate_key = (bytes = 32, prefix = ""): string => {
   const key = nanoid(bytes);
   return prefix ? `${prefix}_${key}` : key;
 };
 
-const hash_key = (key: string) =>
+/**
+ * Hashes a key using SHA-256.
+ * @param key - The plaintext key to hash.
+ * @returns The hex-encoded hash.
+ */
+export const hash_key = (key: string): string =>
   crypto.createHash("sha256").update(key).digest("hex");
 
-const generate_key_and_hash = (bytes = 32, prefix = "") => {
+/**
+ * Generates a new key and its hash.
+ * @param bytes - Number of random bytes (default 32).
+ * @param prefix - Optional prefix to prepend.
+ * @returns The generated key and its hash.
+ */
+export const generate_key_and_hash = (bytes = 32, prefix = "") => {
   const key = generate_key(bytes, prefix);
   const hash = hash_key(key);
   return { key, hash };
@@ -66,15 +83,17 @@ export interface KeysClient {
    * @param updates - Fields to update (cannot change `hash` or `owner`).
    * @returns Result with the updated key or error.
    */
-  update(key_id: string, updates: Partial<Omit<StoredKey, "hash" | "owner">>): Promise<Result<StoredKey>>;
+  update(
+    key_id: string,
+    updates: Partial<Omit<StoredKey, "hash" | "owner">>,
+  ): Promise<Result<StoredKey>>;
 
   /**
-   * Lists keys belonging to a specific owner with cursor‑based pagination.
+   * Lists keys belonging to a specific owner.
    * @param owner - Owner identifier.
-   * @param cursor - Scan cursor (default "0").
-   * @param count - Number of keys per page (default 10).
+   * @returns Array of keys belonging to the owner (without hash).
    */
-  list_by_owner: KeysStorage["list_by_owner"];
+  list_by_owner(owner: string): Promise<Omit<StoredKey, "hash">[]>;
 
   /**
    * Deletes a key by its ID.
@@ -103,23 +122,34 @@ export interface KeysClient {
   lookup(key: string): Promise<Result<Omit<StoredKey, "hash">>>;
 }
 
-const keys = (storage: Storage): KeysClient => {
+export type RateLimitChecker = (
+  hash: string,
+  limits: RateLimit[],
+) => Promise<Result<RateLimitWithCheck[]>>;
+
+export interface KeysClientOptions {
+  vault: KeyVault;
+  check_limits: RateLimitChecker;
+}
+
+const keys = (options: KeysClientOptions): KeysClient => {
+  const { vault, check_limits } = options;
+
   const create_key: KeysClient["create_key"] = async (
     request: CreateKeyRequest,
-    options?: { bytes: number; prefix: string },
+    request_options?: { bytes: number; prefix: string },
   ) => {
     const { key, hash } = generate_key_and_hash(
-      options?.bytes,
-      options?.prefix,
+      request_options?.bytes,
+      request_options?.prefix,
     );
 
-    const response = await storage.keys.create({
+    const response = await vault.create({
       ...request,
       hash,
     });
 
-    const { success } = response;
-    if (!success) return to_result({ error: response.error });
+    if (!response.success) return to_result({ error: response.error });
     const { data } = response;
     return to_result({ data: { ...data, key } });
   };
@@ -129,10 +159,10 @@ const keys = (storage: Storage): KeysClient => {
     limits: RateLimit[],
   ) => {
     const hash = hash_key(key);
-    const response = await storage.limits.check_limits(hash, limits);
+    const response = await check_limits(hash, limits);
     if (!response.success) return response;
 
-    const key_record = await storage.keys.get(hash);
+    const key_record = await vault.get(hash);
     if (!key_record) return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
 
     const exceeded_record = response.data.find((limit) => limit.exceeded);
@@ -146,10 +176,12 @@ const keys = (storage: Storage): KeysClient => {
     });
   };
 
-  const get = async (key_id: string): Promise<Omit<StoredKey, "hash"> | null> => {
-    const hash_response = await storage.keys.get_by_id(key_id);
+  const get = async (
+    key_id: string,
+  ): Promise<Omit<StoredKey, "hash"> | null> => {
+    const hash_response = await vault.get_by_id(key_id);
     if (!hash_response.success) return null;
-    const stored_key = await storage.keys.get(hash_response.data);
+    const stored_key = await vault.get(hash_response.data);
     if (!stored_key) return null;
     return omit(["hash"], stored_key);
   };
@@ -158,49 +190,75 @@ const keys = (storage: Storage): KeysClient => {
     key_id: string,
     updates: Partial<Omit<StoredKey, "hash" | "owner">>,
   ): Promise<Result<StoredKey>> => {
-    const hash_response = await storage.keys.get_by_id(key_id);
-    if (!hash_response.success) return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
-    return storage.keys.update(hash_response.data, updates);
+    const hash_response = await vault.get_by_id(key_id);
+    if (!hash_response.success)
+      return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
+    return vault.update(hash_response.data, updates);
   };
+
   const delete_key = async (key_id: string): Promise<Result<boolean>> => {
-    const hash_response = await storage.keys.get_by_id(key_id);
-    if (!hash_response.success) return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
-    return storage.keys.delete(hash_response.data);
+    const hash_response = await vault.get_by_id(key_id);
+    if (!hash_response.success)
+      return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
+    return vault.delete(hash_response.data);
   };
-  const list_by_owner: KeysClient["list_by_owner"] = storage.keys.list_by_owner;
+
+  const list_by_owner = async (
+    owner: string,
+  ): Promise<Omit<StoredKey, "hash">[]> => {
+    const keys = await vault.list(owner);
+    return keys.map((key) => omit(["hash"], key));
+  };
 
   const rotate_key: KeysClient["rotate_key"] = async (key_id, options) => {
-    const hash_response = await storage.keys.get_by_id(key_id);
-    if (!hash_response.success) return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
+    const hash_response = await vault.get_by_id(key_id);
+    if (!hash_response.success)
+      return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
     const current_hash = hash_response.data;
 
-    const stored_key = await storage.keys.get(current_hash);
+    const stored_key = await vault.get(current_hash);
     if (!stored_key) return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
 
-    if ((stored_key as Record<string, unknown>)["rotated"] === "true") {
+    // FIX: Use direct boolean comparison on typed field
+    if (stored_key.rotated === true) {
       return to_result({ error: Error(ERR_KEY_ALREADY_ROTATED) });
     }
 
     const { key: new_key, hash: new_hash } = generate_key_and_hash();
 
-    const response = await storage.keys.rotate(
-      current_hash,
-      new_hash,
-      options?.grace_period,
-    );
-    if (!response.success) return to_result({ error: response.error });
+    // Create new key with rotated metadata
+    const { hash: _, rotated: __, ...key_data } = stored_key;
+    const create_response = await vault.create({
+      ...key_data,
+      hash: new_hash,
+      rotated: undefined,
+    });
+
+    if (!create_response.success)
+      return to_result({ error: create_response.error });
+
+    const grace_period = options?.grace_period ?? 0;
+
+    if (grace_period === 0) {
+      await vault.delete(current_hash);
+    } else {
+      await vault.touch(current_hash);
+    }
+
+    const expires_at =
+      grace_period > 0 ? Date.now() + grace_period * 1000 : 0;
 
     return to_result({
       data: {
         key: new_key,
-        expires_at: response.data.expires_at,
+        expires_at,
       },
     });
   };
 
   const lookup: KeysClient["lookup"] = async (key: string) => {
     const hash = hash_key(key);
-    const stored_key = await storage.keys.get(hash);
+    const stored_key = await vault.get(hash);
     if (!stored_key) return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
     return to_result({ data: omit(["hash"], stored_key) });
   };

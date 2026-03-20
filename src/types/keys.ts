@@ -10,6 +10,7 @@ export const key_schema = z.object({
   expires: z.number().optional(),
   meta: z.record(z.string(), z.string()).optional(),
   rateLimits: z.array(rate_limit_schema).optional(),
+  rotated: z.boolean().optional(),
 });
 
 export const workspace_schema = z.object({

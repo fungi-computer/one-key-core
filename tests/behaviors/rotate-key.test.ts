@@ -47,7 +47,9 @@ describe("Rotate Key", () => {
       if (!create_response.success) throw create_response.error;
       const original_id = create_response.data.id;
 
-      const rotate_response = await client.keys.rotate_key(original_id);
+      const rotate_response = await client.keys.rotate_key(original_id, {
+        grace_period: 10,
+      });
       if (!rotate_response.success) throw rotate_response.error;
 
       const get_response = await client.keys.get(original_id);
@@ -62,7 +64,9 @@ describe("Rotate Key", () => {
       if (!create_response.success) throw create_response.error;
       const original_id = create_response.data.id;
 
-      const rotate_response = await client.keys.rotate_key(original_id);
+      const rotate_response = await client.keys.rotate_key(original_id, {
+        grace_period: 10,
+      });
       if (!rotate_response.success) throw rotate_response.error;
 
       const get_response = await client.keys.get(original_id);
@@ -88,7 +92,9 @@ describe("Rotate Key", () => {
       if (!create_response.success) throw create_response.error;
       const original_id = create_response.data.id;
 
-      const rotate_response = await client.keys.rotate_key(original_id);
+      const rotate_response = await client.keys.rotate_key(original_id, {
+        grace_period: 10,
+      });
       if (!rotate_response.success) throw rotate_response.error;
 
       const get_response = await client.keys.get(original_id);

@@ -91,6 +91,20 @@ export interface KeysStorage {
     cursor?: string | number,
     count?: number,
   ): Promise<{ keys: StoredKey[]; next_cursor: string }>;
+
+  /**
+   * Touches a key to mark it as rotated (prevents re-rotation).
+   * @param hash - The hash of the key to touch.
+   * @returns A `Result` containing void on success, or an error if the key doesn't exist.
+   */
+  touch(hash: string): Promise<Result<void>>;
+
+  /**
+   * Lists all keys belonging to a specific owner without pagination.
+   * @param owner - Owner/workspace identifier.
+   * @returns An array of all keys belonging to the owner.
+   */
+  list_keys_for_owner(owner: string): Promise<StoredKey[]>;
 }
 
 const keys = (redis: Redis | Cluster): KeysStorage => {
@@ -98,9 +112,13 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
     const result = await redis.hgetall(`key:${hash}`).then((key) => {
       if (values(key).length === 0) return {};
 
+      // MIGRATION: Handle rotated stored as string "true" -> boolean true
+      const migrated_rotated = key.rotated === "true" ? true : undefined;
+
       return {
         ...key,
         rateLimits: key.rateLimits ? JSON.parse(key.rateLimits) : [],
+        rotated: migrated_rotated,
       };
     });
     return isEmpty(result) ? null : (result as StoredKey);
@@ -143,6 +161,7 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
         ...safe_key,
         createdAt: Date.now(),
         rateLimits: JSON.stringify(safe_key.rateLimits ?? []),
+        rotated: safe_key.rotated ? 1 : 0,
       })
       .set(`id:${safe_key.id}`, safe_key.hash)
       .sadd(`owner:${safe_key.owner}:keys`, safe_key.hash)
@@ -152,7 +171,7 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
     const result = await get(safe_key.hash);
     if (!result)
       return to_result({
-        error: Error(ERR_KEY_CREATE_FAILED),
+        error: new Error(ERR_KEY_CREATE_FAILED),
       });
     return to_result({ data: result! });
   };
@@ -181,6 +200,12 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
       await redis.hset(`key:${hash}`, {
         ...safe_updates,
         rateLimits: JSON.stringify(safe_updates.rateLimits ?? []),
+        rotated:
+          safe_updates.rotated !== undefined
+            ? safe_updates.rotated
+              ? 1
+              : 0
+            : undefined,
       });
     }
 
@@ -268,6 +293,37 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
     return { keys, next_cursor: nextCursor };
   };
 
+  const list_keys_for_owner = async (
+    owner: string,
+  ): Promise<StoredKey[]> => {
+    const hashes = await redis.smembers(`owner:${owner}:keys`);
+    if (hashes.length === 0) return [];
+
+    const pipeline = redis.pipeline();
+    hashes.forEach((hash) => pipeline.hgetall(`key:${hash}`));
+    const results = (await pipeline.exec()) ?? [];
+
+    const keys = results.map(([err, data]) => {
+      if (err) throw err;
+
+      // MIGRATION: Handle rotated stored as string "true" or integer 1 -> boolean true
+      const migrated_rotated =
+        (data as any).rotated === "true" || (data as any).rotated === "1"
+          ? true
+          : undefined;
+
+      return {
+        ...(data as any),
+        rateLimits: (data as any).rateLimits
+          ? JSON.parse((data as any).rateLimits)
+          : [],
+        rotated: migrated_rotated,
+      } as StoredKey;
+    });
+
+    return keys;
+  };
+
   const rotate: KeysStorage["rotate"] = async (
     hash: string,
     new_hash: string,
@@ -278,7 +334,7 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
       return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
     }
 
-    if ((old_key as Record<string, unknown>)["rotated"] === "true") {
+    if (old_key.rotated === true) {
       return to_result({ error: Error(ERR_KEY_ALREADY_ROTATED) });
     }
 
@@ -291,12 +347,12 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
 
     if (has_grace_period) {
       multi.expire(`key:${hash}`, grace_period);
-      multi.hset(`key:${hash}`, "rotated", "true");
+      multi.hset(`key:${hash}`, "rotated", 1);
     } else {
       multi.del(`key:${hash}`);
     }
 
-    const { hash: _, owner, id, ...rest } = old_key;
+    const { hash: _, owner, id, rotated: __, ...rest } = old_key;
     multi.hset(`key:${new_hash}`, {
       ...rest,
       id,
@@ -317,6 +373,15 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
     });
   };
 
+  const touch: KeysStorage["touch"] = async (hash: string) => {
+    const exists = await redis.exists(`key:${hash}`);
+    if (!exists) {
+      return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
+    }
+    await redis.hset(`key:${hash}`, "rotated", 1);
+    return to_result({ data: undefined });
+  };
+
   return {
     create,
     get,
@@ -326,6 +391,8 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
     delete: delete_key,
     list,
     list_by_owner,
+    list_keys_for_owner,
+    touch,
   };
 };
 

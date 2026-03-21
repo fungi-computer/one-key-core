@@ -11,6 +11,54 @@ import type { CreateKeyRequest, StoredKey } from "../types/keys";
 import type { RotateKeyResponse } from "../types/keys";
 import type { RateLimit } from "../schemas";
 
+/**
+ * Strategy for generating key values.
+ */
+export type KeyGenerator = (
+  bytes?: number,
+  prefix?: string,
+) => { key: string; hash: string };
+
+/**
+ * Strategy for hashing keys.
+ */
+export type KeyHasher = (key: string) => string;
+
+/**
+ * Strategy for rotation policy decisions.
+ */
+export interface KeyRotationStrategy {
+  /**
+   * Determines if a key can be rotated.
+   */
+  can_rotate(stored_key: StoredKey): boolean;
+  /**
+   * Optional callback after successful rotation.
+   */
+  after_rotation?(previous_key: StoredKey): void;
+}
+
+/**
+ * Default key generator using nanoid.
+ */
+export const default_key_generator: KeyGenerator = (bytes = 32, prefix = "") => {
+  const key = generate_key(bytes, prefix);
+  const hash = hash_key(key);
+  return { key, hash };
+};
+
+/**
+ * Default hasher using SHA-256.
+ */
+export const default_key_hasher: KeyHasher = (key: string) => hash_key(key);
+
+/**
+ * Default rotation strategy - denies already-rotated keys.
+ */
+export const default_rotation_strategy: KeyRotationStrategy = {
+  can_rotate: (stored_key) => stored_key.rotated !== true,
+};
+
 const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz_";
 const nanoid = customAlphabet(alphabet, 32);
 
@@ -130,16 +178,25 @@ export type RateLimitChecker = (
 export interface KeysClientOptions {
   vault: KeyVault;
   check_limits: RateLimitChecker;
+  generate_key?: KeyGenerator;
+  hash_key?: KeyHasher;
+  rotation_strategy?: KeyRotationStrategy;
 }
 
 const keys = (options: KeysClientOptions): KeysClient => {
-  const { vault, check_limits } = options;
+  const {
+    vault,
+    check_limits,
+    generate_key = default_key_generator,
+    hash_key = default_key_hasher,
+    rotation_strategy = default_rotation_strategy,
+  } = options;
 
   const create_key: KeysClient["create_key"] = async (
     request: CreateKeyRequest,
     request_options?: { bytes: number; prefix: string },
   ) => {
-    const { key, hash } = generate_key_and_hash(
+    const { key, hash } = generate_key(
       request_options?.bytes,
       request_options?.prefix,
     );
@@ -219,12 +276,12 @@ const keys = (options: KeysClientOptions): KeysClient => {
     const stored_key = await vault.get(current_hash);
     if (!stored_key) return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
 
-    // FIX: Use direct boolean comparison on typed field
-    if (stored_key.rotated === true) {
+    // Delegate rotation eligibility check to configured strategy
+    if (!rotation_strategy.can_rotate(stored_key)) {
       return to_result({ error: Error(ERR_KEY_ALREADY_ROTATED) });
     }
 
-    const { key: new_key, hash: new_hash } = generate_key_and_hash();
+    const { key: new_key, hash: new_hash } = generate_key();
 
     // Create new key with rotated metadata
     const { hash: _, rotated: __, ...key_data } = stored_key;
@@ -244,6 +301,8 @@ const keys = (options: KeysClientOptions): KeysClient => {
     } else {
       await vault.touch(current_hash);
     }
+
+    void rotation_strategy.after_rotation?.(stored_key);
 
     const expires_at =
       grace_period > 0 ? Date.now() + grace_period * 1000 : 0;

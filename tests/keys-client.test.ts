@@ -9,7 +9,7 @@ import keys, {
   generate_key,
   hash_key,
 } from "../src/client/keys";
-import { ERR_KEY_NOT_FOUND, ERR_KEY_ALREADY_ROTATED } from "../src/errors";
+import { ERR_KEY_NOT_FOUND, ERR_KEY_ALREADY_ROTATED, ERR_KEY_EXPIRED } from "../src/errors";
 import { InMemoryKeyVault } from "./mocks/key-vault";
 
 const create_test_client = (): {
@@ -150,6 +150,98 @@ describe("KeysClient", () => {
       if (!verify_response.success) return;
       expect(verify_response.data.owner).toBe("test_owner");
       expect(verify_response.data.name).toBe("Test Key");
+    });
+
+    test("returns error for expired key", async () => {
+      const create_response = await client.create_key({
+        owner: "test_owner",
+        name: "Test Key",
+      });
+      if (!create_response.success) throw create_response.error;
+
+      // Set the key to expire in the past
+      await vault.update(create_response.data.hash, {
+        expires: Date.now() - 1000,
+      });
+
+      const verify_response = await client.verify(create_response.data.key, []);
+
+      expect(verify_response.success).toBe(false);
+      expect(verify_response.error.message).toContain(ERR_KEY_EXPIRED);
+    });
+
+    test("allows key with no expires field", async () => {
+      const create_response = await client.create_key({
+        owner: "test_owner",
+        name: "Test Key",
+      });
+      if (!create_response.success) throw create_response.error;
+
+      const verify_response = await client.verify(create_response.data.key, []);
+
+      expect(verify_response.success).toBe(true);
+      if (!verify_response.success) return;
+      expect(verify_response.data.valid).toBe(true);
+    });
+
+    test("allows key with future expires", async () => {
+      const create_response = await client.create_key({
+        owner: "test_owner",
+        name: "Test Key",
+      });
+      if (!create_response.success) throw create_response.error;
+
+      // Set the key to expire in the future
+      await vault.update(create_response.data.hash, {
+        expires: Date.now() + 10000,
+      });
+
+      const verify_response = await client.verify(create_response.data.key, []);
+
+      expect(verify_response.success).toBe(true);
+      if (!verify_response.success) return;
+      expect(verify_response.data.valid).toBe(true);
+    });
+
+    test("expired key cannot exhaust rate limits", async () => {
+      // Create a client with a rate limiter that tracks calls
+      let rate_limit_check_calls = 0;
+      const tracking_check_limits: RateLimitChecker = async (
+        _hash: string,
+        _limits: RateLimit[],
+      ) => {
+        rate_limit_check_calls++;
+        const checked_limits: RateLimitWithCheck[] = _limits.map((limit) => ({
+          ...limit,
+          current: 0,
+          exceeded: false,
+          reset_at: Date.now() + limit.duration * 1000,
+        }));
+        return { success: true, data: checked_limits };
+      };
+
+      const tracking_client = keys({ vault, check_limits: tracking_check_limits });
+
+      const create_response = await tracking_client.create_key({
+        owner: "test_owner",
+        name: "Test Key",
+      });
+      if (!create_response.success) throw create_response.error;
+
+      // Set the key to expire in the past
+      await vault.update(create_response.data.hash, {
+        expires: Date.now() - 1000,
+      });
+
+      const verify_response = await tracking_client.verify(
+        create_response.data.key,
+        [],
+      );
+
+      expect(verify_response.success).toBe(false);
+      expect(verify_response.error.message).toContain(ERR_KEY_EXPIRED);
+      // Rate limit check should NOT have been called since expiration is checked first
+      expect(rate_limit_check_calls).toBe(0);
     });
   });
 

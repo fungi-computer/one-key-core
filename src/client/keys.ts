@@ -1,7 +1,8 @@
 import crypto from "crypto";
 import { omit } from "ramda";
 import { to_result } from "../utils";
-import { ERR_KEY_NOT_FOUND, ERR_KEY_ALREADY_ROTATED } from "../errors";
+import { is_expired } from "../utils/expires.js";
+import { ERR_KEY_NOT_FOUND, ERR_KEY_ALREADY_ROTATED, ERR_KEY_EXPIRED } from "../errors";
 import { customAlphabet } from "nanoid";
 
 import type { KeyVault } from "./keyvault";
@@ -216,11 +217,16 @@ const keys = (options: KeysClientOptions): KeysClient => {
     limits: RateLimit[],
   ) => {
     const hash = hash_key(key);
-    const response = await check_limits(hash, limits);
-    if (!response.success) return response;
 
     const key_record = await vault.get(hash);
     if (!key_record) return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
+
+    if (is_expired(key_record)) {
+      return to_result({ error: Error(ERR_KEY_EXPIRED) });
+    }
+
+    const response = await check_limits(hash, limits);
+    if (!response.success) return response;
 
     const exceeded_record = response.data.find((limit) => limit.exceeded);
     const valid = exceeded_record === undefined;

@@ -325,6 +325,9 @@ const keys = (options: KeysClientOptions): KeysClient => {
     const hash = hash_key(key);
     const stored_key = await vault.get(hash);
     if (!stored_key) return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
+    if (is_expired(stored_key)) {
+      return to_result({ error: Error(ERR_KEY_EXPIRED) });
+    }
     return to_result({ data: omit(["hash"], stored_key) });
   };
 

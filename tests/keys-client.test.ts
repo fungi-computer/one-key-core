@@ -483,6 +483,24 @@ describe("KeysClient", () => {
       if (!lookup_response.success) return;
       expect(lookup_response.data.hash).toBeUndefined();
     });
+
+    test("returns error for expired key", async () => {
+      const create_response = await client.create_key({
+        owner: "test_owner",
+        name: "Test Key",
+      });
+      if (!create_response.success) throw create_response.error;
+
+      // Set the key to expire immediately (in the past)
+      await vault.update(create_response.data.hash, {
+        expires: Date.now() - 1,
+      });
+
+      const lookup_response = await client.lookup(create_response.data.key);
+
+      expect(lookup_response.success).toBe(false);
+      expect(lookup_response.error.message).toContain(ERR_KEY_EXPIRED);
+    });
   });
 
   describe("list_by_owner", () => {

@@ -1,6 +1,7 @@
 import type { StoredKey, Workspace } from "../types/keys";
 import type { RateLimit } from "../schemas";
 import { rate_limit_schema } from "../schemas";
+import { z } from "zod";
 import type { Redis, ChainableCommander, Cluster } from "ioredis";
 
 import {
@@ -36,6 +37,20 @@ export type RateLimitWithCheck = RateLimit & {
 };
 
 export type RateLimitWithCheckResult = Result<RateLimitWithCheck[]>;
+
+export const check_limit_schema = z.object({
+  identifier: z.string().min(1).max(256),
+  limit: z.number().int().min(1),
+  duration: z.number().min(1).max(86400),
+});
+
+export type CheckLimitInput = z.infer<typeof check_limit_schema>;
+
+export type CheckLimitResult = {
+  allowed: boolean;
+  remaining: number;
+  reset: number;
+};
 
 const object_from_list_with = curry((fn: (item: any) => string, list: any[]) =>
   chain(zipObj, map(fn))(list),
@@ -143,7 +158,7 @@ export class RateLimitEngine {
   }
 }
 
-const check_limit: CheckLimit = (redis, redis_key, scope, rate_limit) => {
+const check_limit_internal: CheckLimit = (redis, redis_key, scope, rate_limit) => {
   const cost = rate_limit.cost ?? 1;
   const now = Date.now();
 
@@ -151,7 +166,7 @@ const check_limit: CheckLimit = (redis, redis_key, scope, rate_limit) => {
   const response = redis.check_limit(
     redis_key,
     rate_limit.limit.toString(),
-    (rate_limit.duration ?? 60).toString(),
+    ((rate_limit.duration ?? 60) * 1000).toString(),
     cost.toString(),
     now,
     scope,
@@ -177,7 +192,27 @@ export interface Limits {
   get_usage(scope: string, key: string, name: string): Promise<number>;
 
   /**
-   * Checks a single rate limit against a Redis key, either by immediate execution or by adding to a pipeline.
+   * Checks rate limit - overloaded to support both standalone and pipeline usage.
+   *
+   * Standalone (3 args): Check limit without key/workspace dependency
+   * @param identifier - Arbitrary string (IP, user ID, etc.), max 256 chars
+   * @param limit - Max requests allowed, min 1
+   * @param duration - Window in seconds, min 1, max 86400
+   *
+   * Pipeline (4 args): Internal check for key/workspace rate limits
+   * @param redis - A Redis client, cluster, or pipeline.
+   * @param redis_key - The Redis key under which the rate limit data is stored.
+   * @param scope - The scope of the check (e.g., "key" or "workspace").
+   * @param rate_limit - The rate limit configuration.
+   */
+  check_limit(
+    identifier: string,
+    limit: number,
+    duration: number,
+  ): Promise<Result<CheckLimitResult>>;
+
+  /**
+   * Internal: Checks a single rate limit against a Redis key for pipeline operations.
    *
    * This function is overloaded:
    * - When called with a `Redis` or `Cluster` client, it executes the CHECK_LIMIT Lua script immediately and returns a tuple.
@@ -188,16 +223,8 @@ export interface Limits {
    * @param scope - The scope of the check (e.g., "key" or "workspace"), used for error reporting.
    * @param rate_limit - The rate limit configuration (name, limit, duration, cost).
    * @returns Either a `Promise<RedisCheck>` (immediate mode) or a `ChainableCommander` (pipeline mode).
-   *
-   * @example Immediate mode
-   * const [allowed, remaining, reset, scope] = await limits.check_limit(redis, "key:rate:foo", "key", myLimit);
-   *
-   * @example Pipeline mode
-   * const pipeline = redis.pipeline();
-   * limits.check_limit(pipeline, "key:rate:foo", "key", myLimit);
-   * const results = await pipeline.exec();
    */
-  check_limit: CheckLimit;
+  check_limit_internal: CheckLimit;
 
   /**
    * Converts a raw `RedisCheck` tuple (returned by `check_limit`) into a more readable object.
@@ -262,9 +289,55 @@ const limits = (redis: Redis | Cluster, ports: RateLimitEnginePorts) => {
     return usage;
   };
 
+  const check_limit: Limits["check_limit"] = async (
+    identifier,
+    limit,
+    duration,
+  ): Promise<Result<CheckLimitResult>> => {
+    // Parse and validate inputs at boundary - Parse Don't Validate pattern
+    const parse_result = check_limit_schema.safeParse({ identifier, limit, duration });
+    if (!parse_result.success) {
+      const error_messages = parse_result.error.issues
+        .map((e) => `${e.path.join(".")}: ${e.message}`)
+        .join("; ");
+      return to_result({ error: Error(`INVALID_CHECK_LIMIT: ${error_messages}`) });
+    }
+
+    const { identifier: valid_identifier, limit: valid_limit, duration: valid_duration } =
+      parse_result.data;
+
+    // Convert duration from seconds to milliseconds for Lua script
+    const duration_ms = valid_duration * 1000;
+
+    // Build Redis key with hardcoded prefix
+    const redis_key = `ratelimit:${valid_identifier}`;
+
+    // Call the existing Lua script
+    const now = Date.now();
+    // @ts-expect-error - Lua command added via defineCommand
+    const result = await redis.check_limit(
+      redis_key,
+      valid_limit.toString(),
+      duration_ms.toString(),
+      "1", // cost
+      now,
+      "global",
+    );
+
+    // Return standardized response - Atomic Predictability
+    return to_result({
+      data: {
+        allowed: result[0] === 1,
+        remaining: result[1],
+        reset: result[2],
+      },
+    });
+  };
+
   return {
     get_usage,
     check_limit,
+    check_limit_internal,
     normalize_limit_check,
     check_limits: async (
       hash: string,
@@ -294,13 +367,13 @@ const limits = (redis: Redis | Cluster, ports: RateLimitEnginePorts) => {
       key_limits_to_check.forEach((rate_limit) => {
         const redis_key = `key_rate_limit:${key.id}:${rate_limit.name}`;
         const scope = "key";
-        check_limit(pipeline, redis_key, scope, rate_limit);
+        check_limit_internal(pipeline, redis_key, scope, rate_limit);
       });
 
       workspace_limits_to_check.forEach((rate_limit) => {
         const redis_key = `workspace_rate_limit:${key.owner}:${rate_limit.name}`;
         const scope = "workspace";
-        check_limit(pipeline, redis_key, scope, rate_limit);
+        check_limit_internal(pipeline, redis_key, scope, rate_limit);
       });
 
       type PipelineResult = [Error | null, RedisCheck];

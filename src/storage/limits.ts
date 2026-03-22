@@ -275,13 +275,20 @@ export interface Limits {
   ): Promise<Result<RateLimitWithCheck[]>>;
 }
 
-const limits = (redis: Redis | Cluster, ports: RateLimitEnginePorts) => {
+export interface LimitsOptions {
+  keyPrefix?: string;
+}
+
+const limits = (redis: Redis | Cluster, ports: RateLimitEnginePorts, options?: LimitsOptions) => {
   redis.defineCommand("check_limit", {
     numberOfKeys: 1,
     lua: rate_limit_script,
   });
 
   const rate_limit_engine = new RateLimitEngine(ports);
+
+  // Use provided prefix or default to 'ratelimit' for backward compatibility
+  const key_prefix = options?.keyPrefix ?? "ratelimit";
 
   const get_usage = async (scope: string, key: string, name: string) => {
     const redis_key = `${scope}_rate_limit:${key}:${name}`;
@@ -309,8 +316,8 @@ const limits = (redis: Redis | Cluster, ports: RateLimitEnginePorts) => {
     // Convert duration from seconds to milliseconds for Lua script
     const duration_ms = valid_duration * 1000;
 
-    // Build Redis key with hardcoded prefix
-    const redis_key = `ratelimit:${valid_identifier}`;
+    // Build Redis key with configurable prefix: {keyPrefix}:{identifier}:window
+    const redis_key = `${key_prefix}:${valid_identifier}:window`;
 
     // Call the existing Lua script
     const now = Date.now();

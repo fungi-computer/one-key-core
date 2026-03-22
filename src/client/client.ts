@@ -2,7 +2,7 @@ import type { Storage } from "../storage/storage";
 import type { WorkspacesStorage } from "../storage/workspaces";
 import type { KeyVault } from "./keyvault";
 
-import keys, { type KeysClient, type RateLimitChecker } from "./keys";
+import { create_keys_client, type KeysClient, type RateLimiter } from "./keys";
 
 export interface Client {
   keys: KeysClient;
@@ -28,18 +28,18 @@ const adapt_key_vault = (storage: Storage): KeyVault => {
 };
 
 /**
- * Adapts the storage's rate limit checker to the RateLimitChecker interface.
+ * Adapts the storage's rate limit checker to the RateLimiter interface.
  */
-const adapt_rate_limit_checker = (storage: Storage): RateLimitChecker => {
+const adapt_rate_limiter = (storage: Storage): RateLimiter => {
   return async (hash, limits) => storage.limits.check_limits(hash, limits);
 };
 
 const Client = (options: { storage: Storage }): Client => {
   const { storage } = options;
   return {
-    keys: keys({
+    keys: create_keys_client({
       vault: adapt_key_vault(storage),
-      check_limits: adapt_rate_limit_checker(storage),
+      check_limits: adapt_rate_limiter(storage),
     }),
     admin: storage,
     workspaces: storage.workspaces,

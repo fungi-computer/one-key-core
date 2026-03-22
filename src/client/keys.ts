@@ -171,20 +171,20 @@ export interface KeysClient {
   lookup(key: string): Promise<Result<Omit<StoredKey, "hash">>>;
 }
 
-export type RateLimitChecker = (
+export type RateLimiter = (
   hash: string,
   limits: RateLimit[],
 ) => Promise<Result<RateLimitWithCheck[]>>;
 
 export interface KeysClientOptions {
   vault: KeyVault;
-  check_limits: RateLimitChecker;
+  check_limits: RateLimiter;
   generate_key?: KeyGenerator;
   hash_key?: KeyHasher;
   rotation_strategy?: KeyRotationStrategy;
 }
 
-const keys = (options: KeysClientOptions): KeysClient => {
+export const create_keys_client = (options: KeysClientOptions): KeysClient => {
   const {
     vault,
     check_limits,
@@ -343,4 +343,4 @@ const keys = (options: KeysClientOptions): KeysClient => {
   };
 };
 
-export default keys;
+export { create_keys_client as default };

@@ -3,12 +3,7 @@ import type { RateLimit } from "../src/types/keys";
 import type { RateLimitWithCheck } from "../src/storage/limits";
 import type { Result } from "../src/types/result";
 
-import keys, {
-  type KeysClient,
-  type RateLimitChecker,
-  generate_key,
-  hash_key,
-} from "../src/client/keys";
+import { create_keys_client, type KeysClient, type RateLimiter, generate_key, hash_key } from "../src/client/keys";
 import { ERR_KEY_NOT_FOUND, ERR_KEY_ALREADY_ROTATED, ERR_KEY_EXPIRED } from "../src/errors";
 import { InMemoryKeyVault } from "./mocks/key-vault";
 
@@ -18,7 +13,7 @@ const create_test_client = (): {
 } => {
   const vault = new InMemoryKeyVault();
 
-  const check_limits: RateLimitChecker = async (
+  const check_limits: RateLimiter = async (
     _hash: string,
     _limits: RateLimit[],
   ): Promise<Result<RateLimitWithCheck[]>> => {
@@ -32,7 +27,7 @@ const create_test_client = (): {
     return { success: true, data: checked_limits };
   };
 
-  const client = keys({ vault, check_limits });
+  const client = create_keys_client({ vault, check_limits });
   return { client, vault };
 };
 
@@ -206,7 +201,7 @@ describe("KeysClient", () => {
     test("expired key cannot exhaust rate limits", async () => {
       // Create a client with a rate limiter that tracks calls
       let rate_limit_check_calls = 0;
-      const tracking_check_limits: RateLimitChecker = async (
+      const tracking_check_limits: RateLimiter = async (
         _hash: string,
         _limits: RateLimit[],
       ) => {
@@ -220,7 +215,7 @@ describe("KeysClient", () => {
         return { success: true, data: checked_limits };
       };
 
-      const tracking_client = keys({ vault, check_limits: tracking_check_limits });
+      const tracking_client = create_keys_client({ vault, check_limits: tracking_check_limits });
 
       const create_response = await tracking_client.create_key({
         owner: "test_owner",

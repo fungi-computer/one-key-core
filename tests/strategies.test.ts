@@ -3,12 +3,7 @@ import type { StoredKey } from "../src/types/keys";
 import type { Result } from "../src/types/result";
 import type { RateLimitWithCheck } from "../src/storage/limits";
 import type { RateLimit } from "../src/schemas";
-import keys, {
-  default_key_generator,
-  default_rotation_strategy,
-  type KeysClient,
-  type RateLimitChecker,
-} from "../src/client/keys";
+import { create_keys_client, default_key_generator, default_rotation_strategy, type KeysClient, type RateLimiter } from "../src/client/keys";
 import {
   fake_key_generator,
   allow_all_rotation_policy,
@@ -26,7 +21,7 @@ const create_test_client = (
 } => {
   const vault = new InMemoryKeyVault();
 
-  const check_limits: RateLimitChecker = async (
+  const check_limits: RateLimiter = async (
     _hash: string,
     _limits: RateLimit[],
   ): Promise<Result<RateLimitWithCheck[]>> => {
@@ -39,7 +34,7 @@ const create_test_client = (
     return { success: true, data: checked_limits };
   };
 
-  const client = keys({
+  const client = create_keys_client({
     vault,
     check_limits,
     generate_key: key_generator,

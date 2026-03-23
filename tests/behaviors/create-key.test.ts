@@ -1,7 +1,6 @@
 import { describe, test, expect, beforeEach } from "vitest";
 import Redis from "ioredis";
-import Storage from "../../src/storage/storage";
-import Client from "../../src/client/client";
+import OneKey from "../../src/client/client";
 import * as fixtures from "../fixtures";
 import { ERR_KEY_NOT_FOUND } from "../../src/errors";
 
@@ -10,8 +9,7 @@ const PORT = 6379;
 
 const create_client = () => {
   const redis = new Redis({ host: HOST, port: PORT });
-  const storage = Storage({ redis });
-  const client = Client({ storage });
+  const client = OneKey({ redis });
   return { client, redis };
 };
 
@@ -34,15 +32,15 @@ describe("Create Key", () => {
       if (!verify_response.success) throw Error("Verification should succeed");
       expect(verify_response.data.valid).toBe(true);
 
-      const get_response = await client.keys.get(create_response.data.id);
+      const get_response = await client.admin.keys.get(create_response.data.id);
       expect(get_response?.id).toBe(create_response.data.id);
       expect(get_response?.owner).toBe(key_data.owner);
       expect(get_response?.hash).toBeUndefined();
 
-      const delete_response = await client.keys.delete(create_response.data.id);
+      const delete_response = await client.admin.keys.delete(create_response.data.id);
       expect(delete_response.success).toBe(true);
 
-      const get_after_delete = await client.keys.get(create_response.data.id);
+      const get_after_delete = await client.admin.keys.get(create_response.data.id);
       expect(get_after_delete).toBeNull();
     });
 
@@ -56,7 +54,7 @@ describe("Create Key", () => {
       if (!response.success) throw response.error;
       expect(response.data.key).toMatch(/^test_/);
 
-      await client.keys.delete(response.data.id);
+      await client.admin.keys.delete(response.data.id);
     });
 
     test("looks up key by plaintext value", async () => {
@@ -71,7 +69,7 @@ describe("Create Key", () => {
       expect(lookup_response.data?.owner).toBe(key_data.owner);
       expect(lookup_response.data?.hash).toBeUndefined();
 
-      await client.keys.delete(create_response.data.id);
+      await client.admin.keys.delete(create_response.data.id);
     });
 
     test("updates an existing key", async () => {
@@ -79,14 +77,14 @@ describe("Create Key", () => {
       const create_response = await client.keys.create_key(key_data);
       if (!create_response.success) throw create_response.error;
 
-      const update_response = await client.keys.update(create_response.data.id, {
+      const update_response = await client.admin.keys.update(create_response.data.id, {
         name: "Updated Key Name",
       });
 
       expect(update_response.success).toBe(true);
       expect(update_response.data?.name).toBe("Updated Key Name");
 
-      await client.keys.delete(create_response.data.id);
+      await client.admin.keys.delete(create_response.data.id);
     });
   });
 
@@ -102,13 +100,13 @@ describe("Create Key", () => {
     });
 
     test("returns null when getting non-existent key", async () => {
-      const get_response = await client.keys.get("non-existent-id");
+      const get_response = await client.admin.keys.get("non-existent-id");
 
       expect(get_response).toBeNull();
     });
 
     test("returns error when updating non-existent key", async () => {
-      const response = await client.keys.update("non-existent-id", {
+      const response = await client.admin.keys.update("non-existent-id", {
         name: "New Name",
       });
 
@@ -117,7 +115,7 @@ describe("Create Key", () => {
     });
 
     test("returns error when deleting non-existent key", async () => {
-      const response = await client.keys.delete("non_existent_id_123");
+      const response = await client.admin.keys.delete("non_existent_id_123");
 
       expect(response.success).toBe(false);
       expect(response.error.message).toBe(ERR_KEY_NOT_FOUND);
@@ -148,17 +146,16 @@ describe("Create Key", () => {
         },
       });
 
-      const failing_storage = Storage({ redis: failing_redis });
-      const failing_client = Client({ storage: failing_storage });
+      const failing_client = OneKey({ redis: failing_redis as any });
 
-      const delete_response = await failing_client.keys.delete(
+      const delete_response = await failing_client.admin.keys.delete(
         create_response.data.id,
       );
 
       expect(delete_response.success).toBe(false);
       expect(delete_response.error.message).toBe("Redis connection failed");
 
-      await client.keys.delete(create_response.data.id);
+      await client.admin.keys.delete(create_response.data.id);
     });
   });
 });

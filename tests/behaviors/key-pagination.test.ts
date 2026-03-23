@@ -1,7 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import Redis from "ioredis";
-import Storage from "../../src/storage/storage";
-import Client from "../../src/client/client";
+import OneKey from "../../src/client/client";
 import * as fixtures from "../fixtures";
 
 const HOST = "localhost";
@@ -9,8 +8,7 @@ const PORT = 6379;
 
 const create_client = () => {
   const redis = new Redis({ host: HOST, port: PORT });
-  const storage = Storage({ redis });
-  const client = Client({ storage });
+  const client = OneKey({ redis });
   return { client, redis };
 };
 
@@ -38,13 +36,13 @@ describe("key pagination", () => {
     }
 
     // list_by_owner returns all keys with pagination support
-    const result = await client.keys.list_by_owner(owner);
+    const result = await client.admin.keys.list_by_owner(owner);
     expect(result.keys.length).toBe(15);
   });
 
   test("should return empty result when owner has no keys", async () => {
     const owner = fixtures.create_owner();
-    const result = await client.keys.list_by_owner(owner);
+    const result = await client.admin.keys.list_by_owner(owner);
     expect(result.keys.length).toBe(0);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach } from "vitest";
 import Redis from "ioredis";
-import OneKey from "../src/main";
+import OneKey from "../src/client/client";
 import { nanoid } from "nanoid";
 
 const HOST = "localhost";
@@ -26,7 +26,7 @@ describe("Rate Limit Expiration", () => {
     const owner = nanoid(16);
 
     // Create workspace with a rate limit
-    await client.workspaces.create({
+    await client.admin.workspaces.create({
       owner,
       name: "Test Workspace",
       rateLimits: [
@@ -70,7 +70,7 @@ describe("Rate Limit Expiration", () => {
     const owner = nanoid(16);
 
     // Create workspace with a rate limit
-    await client.workspaces.create({
+    await client.admin.workspaces.create({
       owner,
       name: "Test Workspace",
       rateLimits: [
@@ -115,7 +115,7 @@ describe("Rate Limit Expiration", () => {
     const duration = 60; // 60 seconds
 
     // Create workspace with a known duration rate limit
-    await client.workspaces.create({
+    await client.admin.workspaces.create({
       owner,
       name: "Test Workspace",
       rateLimits: [

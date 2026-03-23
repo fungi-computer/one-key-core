@@ -1,7 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import Redis from "ioredis";
-import Storage from "../../src/storage/storage";
-import Client from "../../src/client/client";
+import OneKey from "../../src/client/client";
 import * as fixtures from "../fixtures";
 
 const HOST = "localhost";
@@ -9,8 +8,7 @@ const PORT = 6379;
 
 const create_client = () => {
   const redis = new Redis({ host: HOST, port: PORT });
-  const storage = Storage({ redis });
-  const client = Client({ storage });
+  const client = OneKey({ redis });
   return { client, redis };
 };
 
@@ -31,13 +29,13 @@ describe("duplicate detection", () => {
 
   test("should reject duplicate workspace for same owner", async () => {
     const owner = fixtures.create_owner();
-    const create1 = await client.workspaces.create({
+    const create1 = await client.admin.workspaces.create({
       owner,
       name: "unique-workspace",
     });
     if (!create1.success) throw create1.error;
 
-    const create2 = await client.workspaces.create({
+    const create2 = await client.admin.workspaces.create({
       owner,
       name: "unique-workspace",
     });
@@ -49,13 +47,13 @@ describe("duplicate detection", () => {
     const owner1 = fixtures.create_owner();
     const owner2 = fixtures.create_owner();
 
-    const ws1 = await client.workspaces.create({
+    const ws1 = await client.admin.workspaces.create({
       owner: owner1,
       name: "shared-name",
     });
     if (!ws1.success) throw ws1.error;
 
-    const ws2 = await client.workspaces.create({
+    const ws2 = await client.admin.workspaces.create({
       owner: owner2,
       name: "shared-name",
     });

@@ -1,7 +1,6 @@
 import { describe, test, expect, beforeEach } from "vitest";
 import Redis from "ioredis";
-import Storage from "../../src/storage/storage";
-import Client from "../../src/client/client";
+import OneKey from "../../src/client/client";
 import { rate_limit_schema } from "../../src/schemas";
 import * as fixtures from "../fixtures";
 
@@ -10,8 +9,7 @@ const PORT = 6379;
 
 const create_client = () => {
   const redis = new Redis({ host: HOST, port: PORT });
-  const storage = Storage({ redis });
-  const client = Client({ storage });
+  const client = OneKey({ redis });
   return { client, redis };
 };
 
@@ -114,30 +112,30 @@ describe("schema validation", () => {
 
   describe("create_workspace", () => {
     test("should reject owner with 2 characters", async () => {
-      const response = await client.workspaces.create({ owner: "ab", name: "wsname" });
+      const response = await client.admin.workspaces.create({ owner: "ab", name: "wsname" });
       expect(response.success).toBe(false);
       expect(response.error.message).toContain("owner");
     });
 
     test("should accept owner with 3 or more characters", async () => {
-      const response = await client.workspaces.create({ owner: "abc", name: "wsname" });
+      const response = await client.admin.workspaces.create({ owner: "abc", name: "wsname" });
       expect(response.success).toBe(true);
     });
 
     test("should reject missing name via Zod validation", async () => {
-      const response = await client.workspaces.create({ owner: "user123" } as any);
+      const response = await client.admin.workspaces.create({ owner: "user123" } as any);
       expect(response.success).toBe(false);
       expect(response.error.message).toContain("name");
     });
 
     test("should reject name with 2 characters", async () => {
-      const response = await client.workspaces.create({ owner: "user123", name: "ab" });
+      const response = await client.admin.workspaces.create({ owner: "user123", name: "ab" });
       expect(response.success).toBe(false);
       expect(response.error.message).toContain("name");
     });
 
     test("should accept name with 3 or more characters", async () => {
-      const response = await client.workspaces.create({ owner: "user123", name: "abc" });
+      const response = await client.admin.workspaces.create({ owner: "user123", name: "abc" });
       expect(response.success).toBe(true);
     });
   });

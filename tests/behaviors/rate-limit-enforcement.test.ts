@@ -1,7 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import Redis from "ioredis";
-import Storage from "../../src/storage/storage";
-import Client from "../../src/client/client";
+import OneKey from "../../src/client/client";
 import * as fixtures from "../fixtures";
 
 const HOST = "localhost";
@@ -9,8 +8,7 @@ const PORT = 6379;
 
 const create_client = () => {
   const redis = new Redis({ host: HOST, port: PORT });
-  const storage = Storage({ redis });
-  const client = Client({ storage });
+  const client = OneKey({ redis });
   return { client, redis };
 };
 
@@ -32,7 +30,7 @@ describe("rate limit enforcement", () => {
   test("should reject workspace with rate limit where cost exceeds limit", async () => {
     // Rate limit validation rejects cost > limit
     const failing = fixtures.create_failing_workspace();
-    const response = await client.workspaces.create(failing);
+    const response = await client.admin.workspaces.create(failing);
     expect(response.success).toBe(false);
   });
 

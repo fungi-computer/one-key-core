@@ -99,6 +99,24 @@ type KeyVerification = Omit<StoredKey, "rateLimits"> & {
   rateLimits: RateLimitWithCheck[];
 };
 
+/**
+ * Public-facing keys client with limited functionality.
+ * Only exposes create_key, verify, and lookup methods.
+ */
+export interface PublicKeysClient {
+  create_key(
+    request: CreateKeyRequest,
+    options?: { bytes?: number; prefix?: string },
+  ): Promise<Result<StoredKey & { key: string }>>;
+
+  verify(key: string, limits: RateLimit[]): Promise<Result<KeyVerification>>;
+
+  lookup(key: string): Promise<Result<Omit<StoredKey, "hash">>>;
+}
+
+/**
+ * Full admin keys client with all management capabilities.
+ */
 export interface KeysClient {
   /**
    * Creates a new API key.
@@ -355,3 +373,18 @@ export const create_keys_client = (options: KeysClientOptions): KeysClient => {
 };
 
 export { create_keys_client as default };
+
+/**
+ * Creates a public-facing keys client with only create_key, verify, and lookup.
+ * Use this for untrusted environments where full admin access is not needed.
+ */
+export const create_public_keys_client = (
+  options: KeysClientOptions,
+): PublicKeysClient => {
+  const full_client = create_keys_client(options);
+  return {
+    create_key: full_client.create_key,
+    verify: full_client.verify,
+    lookup: full_client.lookup,
+  };
+};

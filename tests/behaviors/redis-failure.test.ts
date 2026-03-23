@@ -1,7 +1,6 @@
 import { describe, test, expect } from "vitest";
 import Redis from "ioredis";
-import Storage from "../../src/storage/storage";
-import Client from "../../src/client/client";
+import OneKey from "../../src/client/client";
 import * as fixtures from "../fixtures";
 
 const HOST = "localhost";
@@ -9,14 +8,11 @@ const PORT = 6379;
 
 describe("redis failure recovery", () => {
   test("should throw when using disconnected redis", async () => {
-    // Create a disconnected redis client
     const redis = new Redis({ host: HOST, port: PORT, lazyConnect: true });
-    await redis.quit(); // Ensure disconnected
+    await redis.quit();
 
-    const storage = Storage({ redis });
-    const client = Client({ storage });
+    const client = OneKey({ redis });
 
-    // With disconnected redis, operations throw
     await expect(client.keys.create_key({ owner: "user", name: "key" }))
       .rejects.toThrow();
   });
@@ -25,8 +21,7 @@ describe("redis failure recovery", () => {
     const redis = new Redis({ host: HOST, port: PORT });
     await redis.flushdb();
 
-    const storage = Storage({ redis });
-    const client = Client({ storage });
+    const client = OneKey({ redis });
 
     const owner = fixtures.create_owner();
     const create_response = await client.keys.create_key({ owner, name: "test-key" });
@@ -34,10 +29,8 @@ describe("redis failure recovery", () => {
 
     const key_id = create_response.data.id;
 
-    // Close redis to simulate failure
     await redis.quit();
 
-    // After redis is closed, get throws (connection closed)
-    await expect(client.keys.get(key_id)).rejects.toThrow();
+    await expect(client.admin.keys.get(key_id)).rejects.toThrow();
   });
 });

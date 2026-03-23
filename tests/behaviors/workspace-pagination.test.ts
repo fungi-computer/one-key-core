@@ -1,7 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import Redis from "ioredis";
-import Storage from "../../src/storage/storage";
-import Client from "../../src/client/client";
+import OneKey from "../../src/client/client";
 import * as fixtures from "../fixtures";
 
 const HOST = "localhost";
@@ -9,8 +8,7 @@ const PORT = 6379;
 
 const create_client = () => {
   const redis = new Redis({ host: HOST, port: PORT });
-  const storage = Storage({ redis });
-  const client = Client({ storage });
+  const client = OneKey({ redis });
   return { client, redis };
 };
 
@@ -33,7 +31,7 @@ describe("workspace pagination", () => {
     // Create 10 workspaces with different owners
     for (let i = 0; i < 10; i++) {
       const workspace_owner = `owner-${fixtures.create_owner()}-${i}`;
-      const response = await client.workspaces.create({
+      const response = await client.admin.workspaces.create({
         owner: workspace_owner,
         name: `workspace-${i}`,
       });
@@ -46,7 +44,7 @@ describe("workspace pagination", () => {
     let cursor: number | string = 0;
 
     do {
-      const page = await client.workspaces.list(cursor, 3);
+      const page = await client.admin.workspaces.list(cursor, 3);
       page.workspaces.forEach((ws) => all_workspaces.push(ws.owner));
       cursor = page.next_cursor === "0" ? 0 : parseInt(page.next_cursor as string, 10);
     } while (cursor !== 0 && all_workspaces.length < 10);
@@ -60,7 +58,7 @@ describe("workspace pagination", () => {
 
   test("should return empty result when no workspaces exist", async () => {
     await redis.flushdb();
-    const result = await client.workspaces.list(0, 10);
+    const result = await client.admin.workspaces.list(0, 10);
     expect(result.workspaces.length).toBe(0);
     expect(result.next_cursor).toBe("0");
   });

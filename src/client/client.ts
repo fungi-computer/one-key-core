@@ -13,7 +13,7 @@ export interface Client {
 /**
  * Adapts KeysStorage to the KeyVault port interface.
  */
- // [TODO] Is this redundant? What is going on here its a direct map?
+// [TODO] Is this redundant? What is going on here its a direct map?
 const adapt_key_vault = (storage: Storage): KeyVault => {
   const vault: KeyVault = {
     get: storage.keys.get,
@@ -21,7 +21,7 @@ const adapt_key_vault = (storage: Storage): KeyVault => {
     create: storage.keys.create,
     update: storage.keys.update,
     delete: storage.keys.delete,
-    list: storage.keys.list_keys_for_owner,
+    list: storage.keys.list_by_owner,
     touch: storage.keys.touch,
   };
   return vault;

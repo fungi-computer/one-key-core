@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach } from "vitest";
 import Redis from "ioredis";
 import Storage from "../../src/storage/storage";
 import Client from "../../src/client/client";
-import * as fixtures from "./fixtures";
+import * as fixtures from "../fixtures";
 import { ERR_KEY_NOT_FOUND } from "../../src/errors";
 
 const HOST = "localhost";

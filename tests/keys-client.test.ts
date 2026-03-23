@@ -552,13 +552,13 @@ describe("KeysClient", () => {
 
       const list_response = await client.list_by_owner("owner1");
 
-      expect(list_response.length).toBe(2);
-      expect(list_response.every((k) => k.owner === "owner1")).toBe(true);
+      expect(list_response.keys.length).toBe(2);
+      expect(list_response.keys.every((k) => k.owner === "owner1")).toBe(true);
     });
 
-    test("returns empty array for owner with no keys", async () => {
+    test("returns empty result for owner with no keys", async () => {
       const list_response = await client.list_by_owner("non_existent_owner");
-      expect(list_response).toEqual([]);
+      expect(list_response.keys).toEqual([]);
     });
   });
 });

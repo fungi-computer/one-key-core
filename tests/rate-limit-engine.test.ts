@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach } from "vitest";
 import Redis from "ioredis";
 import Storage from "../src/storage/storage";
 import { RateLimitEngine, type RateLimitEnginePorts } from "../src/storage/limits";
-import * as fixtures from "./behaviors/fixtures";
+import * as fixtures from "./fixtures";
 import type { StoredKey, Workspace, RateLimit } from "../src/types/keys";
 
 const HOST = "localhost";

@@ -4,8 +4,8 @@ import { rate_limit_schema } from "../schemas";
 export const key_schema = z.object({
   id: z.string().regex(/^[a-z0-9_-]{16}$/i),
   hash: z.string(),
-  owner: z.string(),
-  name: z.string(),
+  owner: z.string().min(3),
+  name: z.string().min(3),
   createdAt: z.number(),
   expires: z.number().optional(),
   meta: z.record(z.string(), z.string()).optional(),
@@ -14,8 +14,8 @@ export const key_schema = z.object({
 });
 
 export const workspace_schema = z.object({
-  owner: z.string(),
-  name: z.string(),
+  owner: z.string().min(3),
+  name: z.string().min(3),
   rateLimits: z.array(rate_limit_schema).optional(),
   meta: z.record(z.string(), z.string()).optional(),
 });

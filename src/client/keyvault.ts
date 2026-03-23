@@ -66,11 +66,17 @@ export interface KeyVault {
   delete(hash: string): Promise<Result<boolean>>;
 
   /**
-   * Lists keys belonging to a specific owner.
+   * Lists keys belonging to a specific owner with cursor-based pagination.
    * @param workspace_id - Owner/workspace identifier.
-   * @returns An array of keys belonging to the owner.
+   * @param cursor - Scan cursor (default "0").
+   * @param count - Number of keys to fetch per page (default 10).
+   * @returns An object containing the keys and the next cursor.
    */
-  list(workspace_id: string): Promise<StoredKey[]>;
+  list(
+    workspace_id: string,
+    cursor?: string | number,
+    count?: number,
+  ): Promise<{ keys: StoredKey[]; next_cursor: string }>;
 
   /**
    * Touches a key to mark it as rotated (prevents re-rotation).

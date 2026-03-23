@@ -107,9 +107,13 @@ export class InMemoryKeyVault implements KeyVault {
     return to_result({ data: true });
   }
 
-  async list(workspace_id: string): Promise<StoredKey[]> {
+  async list(
+    workspace_id: string,
+    _cursor: string | number = "0",
+    _count = 10,
+  ): Promise<{ keys: StoredKey[]; next_cursor: string }> {
     const owner_keys = this.keys_by_owner.get(workspace_id);
-    if (!owner_keys) return [];
+    if (!owner_keys) return { keys: [], next_cursor: "0" };
 
     const keys: StoredKey[] = [];
     for (const hash of owner_keys) {
@@ -118,7 +122,7 @@ export class InMemoryKeyVault implements KeyVault {
         keys.push(key);
       }
     }
-    return keys;
+    return { keys, next_cursor: "0" };
   }
 
   async touch(hash: string): Promise<Result<void>> {

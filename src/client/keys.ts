@@ -138,11 +138,17 @@ export interface KeysClient {
   ): Promise<Result<StoredKey>>;
 
   /**
-   * Lists keys belonging to a specific owner.
+   * Lists keys belonging to a specific owner with cursor-based pagination.
    * @param owner - Owner identifier.
-   * @returns Array of keys belonging to the owner (without hash).
+   * @param cursor - Scan cursor (default "0").
+   * @param count - Number of keys to fetch per page (default 10).
+   * @returns An object containing the keys and the next cursor (without hash).
    */
-  list_by_owner(owner: string): Promise<Omit<StoredKey, "hash">[]>;
+  list_by_owner(
+    owner: string,
+    cursor?: string | number,
+    count?: number,
+  ): Promise<{ keys: Omit<StoredKey, "hash">[]; next_cursor: string | null }>;
 
   /**
    * Deletes a key by its ID.
@@ -268,9 +274,14 @@ export const create_keys_client = (options: KeysClientOptions): KeysClient => {
 
   const list_by_owner = async (
     owner: string,
-  ): Promise<Omit<StoredKey, "hash">[]> => {
-    const keys = await vault.list(owner);
-    return keys.map((key) => omit(["hash"], key));
+    cursor: string | number = "0",
+    count = 10,
+  ): Promise<{ keys: Omit<StoredKey, "hash">[]; next_cursor: string | null }> => {
+    const result = await vault.list(owner, cursor, count);
+    return {
+      keys: result.keys.map((key) => omit(["hash"], key)),
+      next_cursor: result.next_cursor,
+    };
   };
 
   const rotate_key: KeysClient["rotate_key"] = async (key_id, options) => {

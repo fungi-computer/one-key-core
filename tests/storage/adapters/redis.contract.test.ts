@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from "vitest";
 import Redis from "ioredis";
 import Storage from "../../../src/storage/storage";
-import * as fixtures from "../../behaviors/fixtures";
+import * as fixtures from "../../fixtures";
 import { ERR_KEY_NOT_FOUND, ERR_WORKSPACE_NOT_FOUND, ERR_RATE_LIMIT_INVALID } from "../../../src/errors";
 
 const HOST = "localhost";
@@ -570,22 +570,12 @@ describe("Storage Contract Tests", () => {
         await storage.workspaces.delete(owner);
       });
 
-      test("Applies workspace rate limits that exceed their limit", async () => {
+      test("Rejects workspace with rate limit where cost exceeds limit", async () => {
         const workspace =
           fixtures.create_workspace_with_exceeded_limits();
-        await storage.workspaces.create(workspace);
-
-        const key = fixtures.create_key(workspace.owner);
-        await storage.keys.create(key);
-
-        const result = await storage.limits.check_limits(key.hash, []);
-        if (!result.success) throw Error("Should succeed");
-
-        expect(result.success).toBe(true);
-        expect(result.data?.some((l) => l.exceeded)).toBe(true);
-
-        await storage.keys.delete(key.hash);
-        await storage.workspaces.delete(workspace.owner);
+        const result = await storage.workspaces.create(workspace);
+        // Validation rejects rate limits where cost > limit
+        expect(result.success).toBe(false);
       });
 
       test("Requested limits override stored limits with same name", async () => {

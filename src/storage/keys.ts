@@ -4,7 +4,7 @@ import { key_schema } from "../types/keys";
 import type { StoredKey } from "../types/keys";
 import type { Cluster, Redis } from "ioredis";
 import type { Result } from "../types/result";
-import { to_result } from "../utils";
+import { to_result, wrap_redis_error } from "../utils";
 import {
   ERR_KEY_NOT_FOUND,
   ERR_DUPLICATE_KEY,
@@ -236,12 +236,18 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
     cursor: number = 0,
     count = 10,
   ): Promise<{ keys: StoredKey[]; next_cursor: string }> => {
-    const [nextCursor, hashes] = await redis.sscan(
-      "keys:all",
-      cursor,
-      "COUNT",
-      count,
-    );
+    let nextCursor: string;
+    let hashes: string[];
+    try {
+      [nextCursor, hashes] = await redis.sscan(
+        "keys:all",
+        cursor,
+        "COUNT",
+        count,
+      );
+    } catch (error) {
+      throw wrap_redis_error("keys.list", error as Error);
+    }
 
     if (hashes.length === 0) return { keys: [], next_cursor: nextCursor };
 
@@ -267,12 +273,18 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
     cursor: string | number = "0",
     count = 10,
   ): Promise<{ keys: StoredKey[]; next_cursor: string }> => {
-    const [nextCursor, hashes] = await redis.sscan(
-      `owner:${owner}:keys`,
-      cursor,
-      "COUNT",
-      count,
-    );
+    let nextCursor: string;
+    let hashes: string[];
+    try {
+      [nextCursor, hashes] = await redis.sscan(
+        `owner:${owner}:keys`,
+        cursor,
+        "COUNT",
+        count,
+      );
+    } catch (error) {
+      throw wrap_redis_error("keys.list_by_owner", error as Error);
+    }
 
     if (hashes.length === 0) return { keys: [], next_cursor: nextCursor };
 
@@ -296,7 +308,12 @@ const keys = (redis: Redis | Cluster): KeysStorage => {
   const list_keys_for_owner = async (
     owner: string,
   ): Promise<StoredKey[]> => {
-    const hashes = await redis.smembers(`owner:${owner}:keys`);
+    let hashes: string[];
+    try {
+      hashes = await redis.smembers(`owner:${owner}:keys`);
+    } catch (error) {
+      throw wrap_redis_error("list_keys_for_owner", error as Error);
+    }
     if (hashes.length === 0) return [];
 
     const pipeline = redis.pipeline();

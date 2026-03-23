@@ -65,8 +65,10 @@ export const create_workspace = (owner?: string) => ({
   rateLimits: [rate_limits.workspace_requests],
 });
 
-export const create_failing_workspace = (owner?: string) => ({
+export const create_workspace_with_exceeded_limits = (owner?: string) => ({
   owner: owner ?? create_owner(),
   name: "Failing Workspace",
   rateLimits: [rate_limits.workspace_requests_fail],
 });
+
+export const create_failing_workspace = create_workspace_with_exceeded_limits;

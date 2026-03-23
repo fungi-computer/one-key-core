@@ -4,7 +4,7 @@ import { workspace_schema } from "../types/keys";
 
 import type { Cluster, Redis } from "ioredis";
 import type { Workspace } from "../types/keys";
-import { to_result } from "../utils";
+import { to_result, wrap_redis_error } from "../utils";
 import {
   ERR_WORKSPACE_NOT_FOUND,
   ERR_DUPLICATE_WORKSPACE,
@@ -196,12 +196,18 @@ const workspaces = (redis: Redis | Cluster): WorkspacesStorage => {
   };
 
   const list = async (cursor: number, count: number) => {
-    const [nextCursor, owners] = await redis.sscan(
-      "workspaces:all",
-      cursor,
-      "COUNT",
-      count,
-    );
+    let nextCursor: string;
+    let owners: string[];
+    try {
+      [nextCursor, owners] = await redis.sscan(
+        "workspaces:all",
+        cursor,
+        "COUNT",
+        count,
+      );
+    } catch (error) {
+      throw wrap_redis_error("workspaces.list", error as Error);
+    }
 
     if (owners.length === 0) return { workspaces: [], next_cursor: nextCursor };
     const pipeline = redis.pipeline();

@@ -17,7 +17,7 @@ import {
 import { mergeDeepRight } from "ramda";
 import rate_limit_script from "./rate-limit-script";
 import { to_result } from "../utils";
-import { ERR_RATE_LIMIT_INVALID, ERR_KEY_NOT_FOUND } from "../errors";
+import { ERR_RATE_LIMIT_INVALID, ERR_KEY_NOT_FOUND, ERR_INVALID_LIMIT, ERR_INVALID_DURATION } from "../errors";
 import type { Result } from "../types/result";
 
 /**
@@ -304,10 +304,16 @@ const limits = (redis: Redis | Cluster, ports: RateLimitEnginePorts, options?: L
     // Parse and validate inputs at boundary - Parse Don't Validate pattern
     const parse_result = check_limit_schema.safeParse({ identifier, limit, duration });
     if (!parse_result.success) {
-      const error_messages = parse_result.error.issues
-        .map((e) => `${e.path.join(".")}: ${e.message}`)
-        .join("; ");
-      return to_result({ error: Error(`INVALID_CHECK_LIMIT: ${error_messages}`) });
+      const issue = parse_result.error.issues[0];
+      const field = issue.path[0] as string;
+
+      if (field === "limit") {
+        return to_result({ error: Error(`${ERR_INVALID_LIMIT}: ${issue.message}`) });
+      }
+      if (field === "duration") {
+        return to_result({ error: Error(`${ERR_INVALID_DURATION}: ${issue.message}`) });
+      }
+      return to_result({ error: Error(`INVALID_CHECK_LIMIT: ${issue.message}`) });
     }
 
     const { identifier: valid_identifier, limit: valid_limit, duration: valid_duration } =

@@ -273,6 +273,66 @@ export interface LimitsFactoryStorage {
   workspaces_storage: import("./workspaces").WorkspacesStorage;
 }
 
+/**
+ * Interface for rate limit engine ports.
+ * Provides a unified way to retrieve rate limits for different entity types.
+ */
+export interface RateLimitEnginePorts {
+  /**
+   * Retrieves rate limits for a given key ID (hash).
+   * @param key_id - The key hash
+   * @returns Promise resolving to array of rate limits for the key
+   */
+  get_key_limits(key_id: string): Promise<RateLimit[]>;
+
+  /**
+   * Retrieves rate limits for a given workspace ID (owner).
+   * @param workspace_id - The workspace owner
+   * @returns Promise resolving to array of rate limits for the workspace
+   */
+  get_workspace_limits(workspace_id: string): Promise<RateLimit[]>;
+}
+
+/**
+ * Keyed adapter that wires existing keys_storage and workspaces_storage
+ * to the RateLimitEnginePorts interface.
+ */
+export class KeyedLimitsAdapter implements RateLimitEnginePorts {
+  private keys_storage: import("./keys").KeysStorage;
+  private workspaces_storage: import("./workspaces").WorkspacesStorage;
+
+  constructor(storage: LimitsFactoryStorage) {
+    this.keys_storage = storage.keys_storage;
+    this.workspaces_storage = storage.workspaces_storage;
+  }
+
+  /**
+   * Fetches key by hash, extracts and returns rateLimits.
+   * @param key_id - The key hash
+   * @returns Promise resolving to array of rate limits, empty array if key not found
+   */
+  async get_key_limits(key_id: string): Promise<RateLimit[]> {
+    // Early exit for null/undefined key_id
+    if (!key_id) return [];
+
+    const key = await this.keys_storage.get(key_id);
+    return key?.rateLimits ?? [];
+  }
+
+  /**
+   * Fetches workspace by owner, extracts and returns rateLimits.
+   * @param workspace_id - The workspace owner
+   * @returns Promise resolving to array of rate limits, empty array if workspace not found
+   */
+  async get_workspace_limits(workspace_id: string): Promise<RateLimit[]> {
+    // Early exit for null/undefined workspace_id
+    if (!workspace_id) return [];
+
+    const workspace = await this.workspaces_storage.get(workspace_id);
+    return workspace?.rateLimits ?? [];
+  }
+}
+
 const limits = (
   redis: Redis | Cluster,
   storage: LimitsFactoryStorage,
@@ -284,6 +344,9 @@ const limits = (
   });
 
   const rate_limit_engine = new RateLimitEngine();
+
+  // Create adapter for getting limits
+  const get_limits_adapter = new KeyedLimitsAdapter(storage);
 
   // Use provided prefix or default to 'ratelimit' for backward compatibility
   const key_prefix = options?.keyPrefix ?? "ratelimit";
@@ -365,21 +428,23 @@ const limits = (
         validated_limits.push(result.data);
       }
 
-      // Get key metadata (id, owner, and rateLimits) via storage adapter directly
+      // Get key metadata (id, owner) via storage directly
       const key = await storage.keys_storage.get(hash);
 
       if (key === null) {
         return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
       }
 
-      // Get workspace limits using the key's owner
-      const workspace = await storage.workspaces_storage.get(key.owner);
-      const workspace_limits = workspace?.rateLimits ?? [];
+      // Use key limits directly since we already have the key object
+      const key_limits = key.rateLimits ?? [];
+
+      // Use adapter only for workspace limits
+      const workspace_limits = await get_limits_adapter.get_workspace_limits(key.owner);
 
       const pipeline = redis.pipeline();
       const { key_limits_to_check, workspace_limits_to_check } =
         await rate_limit_engine.get_limits_to_check(
-          key.rateLimits ?? [],
+          key_limits,
           workspace_limits,
           validated_limits,
         );

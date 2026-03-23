@@ -1,4 +1,3 @@
-import type { StoredKey, Workspace } from "../types/keys";
 import type { RateLimit } from "../schemas";
 import { rate_limit_schema } from "../schemas";
 import { z } from "zod";
@@ -17,17 +16,10 @@ import {
 import { mergeDeepRight } from "ramda";
 import rate_limit_script from "./rate-limit-script";
 import { to_result } from "../utils";
-import { ERR_RATE_LIMIT_INVALID, ERR_KEY_NOT_FOUND, ERR_INVALID_LIMIT, ERR_INVALID_DURATION } from "../errors";
+import { ERR_RATE_LIMIT_INVALID, ERR_INVALID_LIMIT, ERR_INVALID_DURATION, ERR_KEY_NOT_FOUND } from "../errors";
 import type { Result } from "../types/result";
 
-/**
- * Port interface for RateLimitEngine dependency injection.
- * Abstracts the storage operations needed for rate-limit inheritance.
- */
-export interface RateLimitEnginePorts {
-  get_key(key_id: string): Promise<StoredKey | null>;
-  get_workspace(workspace_id: string): Promise<Workspace | null>;
-}
+
 
 export type RateLimitWithCheck = RateLimit & {
   exceeded: boolean;
@@ -83,24 +75,21 @@ const normalize_limit_check = (check: RedisCheck) => {
  * RateLimitEngine handles rate-limit inheritance and merging.
  * Merge priority (highest to lowest): explicit key limit → workspace limit → global default
  *
- * This class is purely computational - it takes injectable ports for storage access.
+ * This class is purely computational - it takes pre-fetched limits as input.
  */
 export class RateLimitEngine {
-  private get_workspace: RateLimitEnginePorts["get_workspace"];
-
-  constructor(ports: RateLimitEnginePorts) {
-    this.get_workspace = ports.get_workspace;
-  }
+  constructor() {}
 
   /**
    * Retrieves limits to check for a given key, applying inheritance rules.
    * Merge priority: explicit key limit → workspace limit → autoVerify defaults
    */
   async get_limits_to_check(
-    key: StoredKey,
+    key_limits: RateLimit[],
+    workspace_limits: RateLimit[],
     request_limits: Partial<RateLimit>[],
   ): Promise<{ key_limits_to_check: RateLimit[]; workspace_limits_to_check: RateLimit[] }> {
-    const all_key_limits: Record<string, RateLimit> = object_from_list_with_name(key.rateLimits ?? []);
+    const all_key_limits: Record<string, RateLimit> = object_from_list_with_name(key_limits);
 
     const auto_key_limits = filter(
       (limit: RateLimit) => limit.autoVerify ?? false,
@@ -108,7 +97,7 @@ export class RateLimitEngine {
     );
 
     const all_workspace_limits: Record<string, RateLimit> = object_from_list_with_name(
-      (await this.get_workspace(key.owner))?.rateLimits ?? [],
+      workspace_limits,
     );
 
     const auto_workspace_limits = filter(
@@ -279,13 +268,22 @@ export interface LimitsOptions {
   keyPrefix?: string;
 }
 
-const limits = (redis: Redis | Cluster, ports: RateLimitEnginePorts, options?: LimitsOptions) => {
+export interface LimitsFactoryStorage {
+  keys_storage: import("./keys").KeysStorage;
+  workspaces_storage: import("./workspaces").WorkspacesStorage;
+}
+
+const limits = (
+  redis: Redis | Cluster,
+  storage: LimitsFactoryStorage,
+  options?: LimitsOptions,
+) => {
   redis.defineCommand("check_limit", {
     numberOfKeys: 1,
     lua: rate_limit_script,
   });
 
-  const rate_limit_engine = new RateLimitEngine(ports);
+  const rate_limit_engine = new RateLimitEngine();
 
   // Use provided prefix or default to 'ratelimit' for backward compatibility
   const key_prefix = options?.keyPrefix ?? "ratelimit";
@@ -367,16 +365,26 @@ const limits = (redis: Redis | Cluster, ports: RateLimitEnginePorts, options?: L
         validated_limits.push(result.data);
       }
 
-      const key = await ports.get_key(hash);
+      // Get key metadata (id, owner, and rateLimits) via storage adapter directly
+      const key = await storage.keys_storage.get(hash);
 
       if (key === null) {
         return to_result({ error: Error(ERR_KEY_NOT_FOUND) });
       }
 
+      // Get workspace limits using the key's owner
+      const workspace = await storage.workspaces_storage.get(key.owner);
+      const workspace_limits = workspace?.rateLimits ?? [];
+
       const pipeline = redis.pipeline();
       const { key_limits_to_check, workspace_limits_to_check } =
-        await rate_limit_engine.get_limits_to_check(key, validated_limits);
+        await rate_limit_engine.get_limits_to_check(
+          key.rateLimits ?? [],
+          workspace_limits,
+          validated_limits,
+        );
 
+      // Use key.id for Redis key construction
       key_limits_to_check.forEach((rate_limit) => {
         const redis_key = `key_rate_limit:${key.id}:${rate_limit.name}`;
         const scope = "key";

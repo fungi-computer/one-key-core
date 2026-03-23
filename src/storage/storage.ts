@@ -18,10 +18,7 @@ const Storage = ({ redis }: { redis: Redis | Cluster }) => {
   const storage = {
     keys: keys_storage,
     workspaces: workspaces_storage,
-    limits: limits(redis, {
-      get_key: (key_id: string) => keys_storage.get(key_id),
-      get_workspace: (workspace_id: string) => workspaces_storage.get(workspace_id),
-    }),
+    limits: limits(redis, { keys_storage, workspaces_storage }),
   };
   return storage;
 };

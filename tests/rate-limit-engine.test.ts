@@ -1,12 +1,30 @@
 import { describe, test, expect, beforeEach } from "vitest";
 import Redis from "ioredis";
 import Storage from "../src/storage/storage";
-import { RateLimitEngine, type RateLimitEnginePorts } from "../src/storage/limits";
+import { RateLimitEngine } from "../src/storage/limits";
 import * as fixtures from "./fixtures";
-import type { StoredKey, Workspace, RateLimit } from "../src/types/keys";
+import type { Workspace, RateLimit } from "../src/types/keys";
+
+interface MockPorts {
+  get_limits(entity_id: string): Promise<RateLimit[]>;
+}
 
 const HOST = "localhost";
 const PORT = 6379;
+
+// Helper function to create mock ports for rate limit testing
+function createMockLimitsPorts(
+  keyRateLimits: RateLimit[],
+  workspaceRateLimits: RateLimit[],
+): MockPorts {
+  return {
+    get_limits: async (entity_id: string) => {
+      if (entity_id === "test_key") return keyRateLimits;
+      if (entity_id === "test_owner") return workspaceRateLimits;
+      return [];
+    },
+  };
+}
 
 // Integration tests using real Redis.
 // Per AGENTS.md testing philosophy: "Tests verify behavior through public interfaces,
@@ -34,15 +52,15 @@ describe("RateLimitEngine", () => {
       const key_data = fixtures.create_key(owner);
       const key_response = await storage.keys.create(key_data);
       if (!key_response.success) throw key_response.error;
-      const created_key = key_response.data;
 
-      const ports: RateLimitEnginePorts = {
-        get_key: (key_id: string) => storage.keys.get(key_id),
-        get_workspace: (workspace_id: string) => storage.workspaces.get(workspace_id),
-      };
+      const key_rate_limits = key_response.data.rateLimits ?? [];
+      const workspace_rate_limits = workspace.rateLimits ?? [];
+      const ports = createMockLimitsPorts(key_rate_limits, workspace_rate_limits);
 
-      const engine = new RateLimitEngine(ports);
-      const result = await engine.get_limits_to_check(created_key, []);
+      const engine = new RateLimitEngine();
+      const key_limits = await ports.get_limits("test_key");
+      const workspace_limits = await ports.get_limits("test_owner");
+      const result = await engine.get_limits_to_check(key_limits, workspace_limits, []);
 
       expect(result.key_limits_to_check.length).toBeGreaterThan(0);
       expect(result.workspace_limits_to_check.length).toBe(1);
@@ -78,15 +96,15 @@ describe("RateLimitEngine", () => {
       ];
       const key_response = await storage.keys.create(key_data);
       if (!key_response.success) throw key_response.error;
-      const created_key = key_response.data;
 
-      const ports: RateLimitEnginePorts = {
-        get_key: (key_id: string) => storage.keys.get(key_id),
-        get_workspace: (workspace_id: string) => storage.workspaces.get(workspace_id),
-      };
+      const key_rate_limits = key_response.data.rateLimits ?? [];
+      const workspace_rate_limits = workspace.rateLimits ?? [];
+      const ports = createMockLimitsPorts(key_rate_limits, workspace_rate_limits);
 
-      const engine = new RateLimitEngine(ports);
-      const result = await engine.get_limits_to_check(created_key, []);
+      const engine = new RateLimitEngine();
+      const key_limits = await ports.get_limits("test_key");
+      const workspace_limits = await ports.get_limits("test_owner");
+      const result = await engine.get_limits_to_check(key_limits, workspace_limits, []);
 
       const key_limit = result.key_limits_to_check.find(
         (l) => l.name === "api_calls",
@@ -105,15 +123,15 @@ describe("RateLimitEngine", () => {
       key_data.rateLimits = [];
       const key_response = await storage.keys.create(key_data);
       if (!key_response.success) throw key_response.error;
-      const created_key = key_response.data;
 
-      const ports: RateLimitEnginePorts = {
-        get_key: (key_id: string) => storage.keys.get(key_id),
-        get_workspace: (workspace_id: string) => storage.workspaces.get(workspace_id),
-      };
+      const key_rate_limits = key_response.data.rateLimits ?? [];
+      const workspace_rate_limits = workspace.rateLimits ?? [];
+      const ports = createMockLimitsPorts(key_rate_limits, workspace_rate_limits);
 
-      const engine = new RateLimitEngine(ports);
-      const result = await engine.get_limits_to_check(created_key, []);
+      const engine = new RateLimitEngine();
+      const key_limits = await ports.get_limits("test_key");
+      const workspace_limits = await ports.get_limits("test_owner");
+      const result = await engine.get_limits_to_check(key_limits, workspace_limits, []);
 
       expect(result.key_limits_to_check.length).toBe(0);
       expect(result.workspace_limits_to_check.length).toBe(1);
@@ -127,22 +145,19 @@ describe("RateLimitEngine", () => {
       const key_data = fixtures.create_key(owner);
       const key_response = await storage.keys.create(key_data);
       if (!key_response.success) throw key_response.error;
-      const created_key = key_response.data;
 
       const requested_limits: Partial<RateLimit>[] = [
         { name: "requests_per_second", cost: 10 },
       ];
 
-      const ports: RateLimitEnginePorts = {
-        get_key: (key_id: string) => storage.keys.get(key_id),
-        get_workspace: (workspace_id: string) => storage.workspaces.get(workspace_id),
-      };
+      const key_rate_limits = key_response.data.rateLimits ?? [];
+      const workspace_rate_limits = workspace.rateLimits ?? [];
+      const ports = createMockLimitsPorts(key_rate_limits, workspace_rate_limits);
 
-      const engine = new RateLimitEngine(ports);
-      const result = await engine.get_limits_to_check(
-        created_key,
-        requested_limits,
-      );
+      const engine = new RateLimitEngine();
+      const key_limits = await ports.get_limits("test_key");
+      const workspace_limits = await ports.get_limits("test_owner");
+      const result = await engine.get_limits_to_check(key_limits, workspace_limits, requested_limits);
 
       const key_limit = result.key_limits_to_check.find(
         (l) => l.name === "requests_per_second",
@@ -164,15 +179,15 @@ describe("RateLimitEngine", () => {
       key_data.rateLimits = [];
       const key_response = await storage.keys.create(key_data);
       if (!key_response.success) throw key_response.error;
-      const created_key = key_response.data;
 
-      const ports: RateLimitEnginePorts = {
-        get_key: (key_id: string) => storage.keys.get(key_id),
-        get_workspace: (workspace_id: string) => storage.workspaces.get(workspace_id),
-      };
+      const key_rate_limits = key_response.data.rateLimits ?? [];
+      const workspace_rate_limits = workspace.rateLimits ?? [];
+      const ports = createMockLimitsPorts(key_rate_limits, workspace_rate_limits);
 
-      const engine = new RateLimitEngine(ports);
-      const result = await engine.get_limits_to_check(created_key, []);
+      const engine = new RateLimitEngine();
+      const key_limits = await ports.get_limits("test_key");
+      const workspace_limits = await ports.get_limits("test_owner");
+      const result = await engine.get_limits_to_check(key_limits, workspace_limits, []);
 
       expect(result.key_limits_to_check.length).toBe(0);
       expect(result.workspace_limits_to_check.length).toBe(0);
@@ -195,15 +210,15 @@ describe("RateLimitEngine", () => {
       ];
       const key_response = await storage.keys.create(key_data);
       if (!key_response.success) throw key_response.error;
-      const created_key = key_response.data;
 
-      const ports: RateLimitEnginePorts = {
-        get_key: (key_id: string) => storage.keys.get(key_id),
-        get_workspace: (workspace_id: string) => storage.workspaces.get(workspace_id),
-      };
+      const key_rate_limits = key_response.data.rateLimits ?? [];
+      const workspace_rate_limits = workspace.rateLimits ?? [];
+      const ports = createMockLimitsPorts(key_rate_limits, workspace_rate_limits);
 
-      const engine = new RateLimitEngine(ports);
-      const result = await engine.get_limits_to_check(created_key, []);
+      const engine = new RateLimitEngine();
+      const key_limits = await ports.get_limits("test_key");
+      const workspace_limits = await ports.get_limits("test_owner");
+      const result = await engine.get_limits_to_check(key_limits, workspace_limits, []);
 
       expect(result.key_limits_to_check.some((l) => l.name === "key_only_limit")).toBe(
         true,
@@ -247,15 +262,15 @@ describe("RateLimitEngine", () => {
       ];
       const key_response = await storage.keys.create(key_data);
       if (!key_response.success) throw key_response.error;
-      const created_key = key_response.data;
 
-      const ports: RateLimitEnginePorts = {
-        get_key: (key_id: string) => storage.keys.get(key_id),
-        get_workspace: (workspace_id: string) => storage.workspaces.get(workspace_id),
-      };
+      const key_rate_limits = key_response.data.rateLimits ?? [];
+      const workspace_rate_limits = workspace.rateLimits ?? [];
+      const ports = createMockLimitsPorts(key_rate_limits, workspace_rate_limits);
 
-      const engine = new RateLimitEngine(ports);
-      const result = await engine.get_limits_to_check(created_key, []);
+      const engine = new RateLimitEngine();
+      const key_limits = await ports.get_limits("test_key");
+      const workspace_limits = await ports.get_limits("test_owner");
+      const result = await engine.get_limits_to_check(key_limits, workspace_limits, []);
 
       const key_limit = result.key_limits_to_check.find(
         (l) => l.name === "shared_limit",
@@ -294,22 +309,19 @@ describe("RateLimitEngine", () => {
       ];
       const key_response = await storage.keys.create(key_data);
       if (!key_response.success) throw key_response.error;
-      const created_key = key_response.data;
 
       const requested_limits: Partial<RateLimit>[] = [
         { name: "api_calls", limit: 300, cost: 5 },
       ];
 
-      const ports: RateLimitEnginePorts = {
-        get_key: (key_id: string) => storage.keys.get(key_id),
-        get_workspace: (workspace_id: string) => storage.workspaces.get(workspace_id),
-      };
+      const key_rate_limits = key_response.data.rateLimits ?? [];
+      const workspace_rate_limits = workspace.rateLimits ?? [];
+      const ports = createMockLimitsPorts(key_rate_limits, workspace_rate_limits);
 
-      const engine = new RateLimitEngine(ports);
-      const result = await engine.get_limits_to_check(
-        created_key,
-        requested_limits,
-      );
+      const engine = new RateLimitEngine();
+      const key_limits = await ports.get_limits("test_key");
+      const workspace_limits = await ports.get_limits("test_owner");
+      const result = await engine.get_limits_to_check(key_limits, workspace_limits, requested_limits);
 
       const key_limit = result.key_limits_to_check.find(
         (l) => l.name === "api_calls",
@@ -329,15 +341,15 @@ describe("RateLimitEngine", () => {
       const key_data = fixtures.create_key(owner);
       const key_response = await storage.keys.create(key_data);
       if (!key_response.success) throw key_response.error;
-      const created_key = key_response.data;
 
-      const ports: RateLimitEnginePorts = {
-        get_key: (key_id: string) => storage.keys.get(key_id),
-        get_workspace: (workspace_id: string) => storage.workspaces.get(workspace_id),
-      };
+      const key_rate_limits = key_response.data.rateLimits ?? [];
+      const workspace_rate_limits = workspace.rateLimits ?? [];
+      const ports = createMockLimitsPorts(key_rate_limits, workspace_rate_limits);
 
-      const engine = new RateLimitEngine(ports);
-      const result = await engine.get_limits_to_check(created_key, []);
+      const engine = new RateLimitEngine();
+      const key_limits = await ports.get_limits("test_key");
+      const workspace_limits = await ports.get_limits("test_owner");
+      const result = await engine.get_limits_to_check(key_limits, workspace_limits, []);
 
       const all_limits = [
         ...result.key_limits_to_check,
@@ -370,15 +382,15 @@ describe("RateLimitEngine", () => {
       key_data.rateLimits = [];
       const key_response = await storage.keys.create(key_data);
       if (!key_response.success) throw key_response.error;
-      const created_key = key_response.data;
 
-      const ports: RateLimitEnginePorts = {
-        get_key: (key_id: string) => storage.keys.get(key_id),
-        get_workspace: (workspace_id: string) => storage.workspaces.get(workspace_id),
-      };
+      const key_rate_limits = key_response.data.rateLimits ?? [];
+      const workspace_rate_limits = workspace.rateLimits ?? [];
+      const ports = createMockLimitsPorts(key_rate_limits, workspace_rate_limits);
 
-      const engine = new RateLimitEngine(ports);
-      const result = await engine.get_limits_to_check(created_key, []);
+      const engine = new RateLimitEngine();
+      const key_limits = await ports.get_limits("test_key");
+      const workspace_limits = await ports.get_limits("test_owner");
+      const result = await engine.get_limits_to_check(key_limits, workspace_limits, []);
 
       const manual_limit = result.workspace_limits_to_check.find(
         (l) => l.name === "manual_limit",
